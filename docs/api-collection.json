@@ -1,0 +1,362 @@
+{
+  "info": {
+    "name": "Microsoft Messaging Hub — API Collection",
+    "_postman_id": "mern-teams-hub-2026",
+    "description": "Complete REST API collection for the Microsoft Teams Messaging Hub. All protected endpoints require a session_token Bearer token obtained from POST /api/auth/msal-token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "session_token", "value": "", "type": "string", "description": "Set this after calling /api/auth/msal-token" },
+    { "key": "team_id", "value": "", "type": "string" },
+    { "key": "channel_id", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{session_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Exchange MSAL Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/auth/msal-token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<your-msal-id-token>\",\n  \"accessToken\": \"<your-msal-access-token>\"\n}"
+            },
+            "description": "Exchange an MSAL id_token + access_token for a backend session JWT. The returned session_token must be sent as Bearer token on all protected routes."
+          }
+        },
+        {
+          "name": "Get Current User (me)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/auth/me",
+            "description": "Returns the authenticated user's profile from the local DB + Graph /me."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/logout",
+            "description": "Clears the MSAL cache, Redis session, and revokes Graph tokens."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams & Channels",
+      "item": [
+        {
+          "name": "List Joined Teams",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/teams?search=",
+              "query": [{ "key": "search", "value": "", "description": "Optional: filter teams by name" }]
+            },
+            "description": "Returns all Teams the signed-in user belongs to. Uses Graph /me/joinedTeams with Redis caching (5 min TTL)."
+          }
+        },
+        {
+          "name": "Get Team Details",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/teams/{{team_id}}"
+          }
+        },
+        {
+          "name": "List Team Channels",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/teams/{{team_id}}/channels"
+          }
+        },
+        {
+          "name": "Get Team Members (for @mention)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/teams/{{team_id}}/members"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Plain Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/messages/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{team_id}}\",\n  \"channelId\": \"{{channel_id}}\",\n  \"content\": \"<p>Hello <at id=\\\"0\\\">John</at>, this is a test message!</p>\",\n  \"mentions\": [\n    {\n      \"id\": 0,\n      \"mentionText\": \"John\",\n      \"mentioned\": { \"user\": { \"id\": \"<aad-user-id>\", \"displayName\": \"John Doe\" } }\n    }\n  ],\n  \"isAdaptiveCard\": false\n}"
+            },
+            "description": "Posts a rich HTML message to a Teams channel via Graph API. Saves to SentMessage collection. Requires Manager role or higher."
+          }
+        },
+        {
+          "name": "Send Adaptive Card",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/messages/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{team_id}}\",\n  \"channelId\": \"{{channel_id}}\",\n  \"isAdaptiveCard\": true,\n  \"cardJson\": {\n    \"type\": \"AdaptiveCard\",\n    \"version\": \"1.4\",\n    \"body\": [\n      { \"type\": \"TextBlock\", \"text\": \"Announcement\", \"size\": \"Large\", \"weight\": \"Bolder\" },\n      { \"type\": \"TextBlock\", \"text\": \"This is sent from the Hub!\", \"wrap\": true }\n    ],\n    \"actions\": [\n      { \"type\": \"Action.Submit\", \"title\": \"Acknowledge\", \"data\": { \"action\": \"acknowledge\" } }\n    ]\n  }\n}"
+            },
+            "description": "Posts an Adaptive Card (schema <= 1.4) to a Teams channel. Card JSON is serialised to string per Graph API requirements."
+          }
+        },
+        {
+          "name": "Reply to Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/messages/reply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{team_id}}\",\n  \"channelId\": \"{{channel_id}}\",\n  \"messageId\": \"<graph-message-id>\",\n  \"content\": \"<p>Thanks for the update!</p>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Sent History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/messages/sent?limit=20&skip=0",
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "skip", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Message History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/messages/search?q=announcement",
+              "query": [{ "key": "q", "value": "announcement" }]
+            }
+          }
+        },
+        {
+          "name": "Get Message Replies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/messages/:id/replies?teamId={{team_id}}&channelId={{channel_id}}",
+              "variable": [{ "key": "id", "value": "<graph-message-id>" }],
+              "query": [
+                { "key": "teamId", "value": "{{team_id}}" },
+                { "key": "channelId", "value": "{{channel_id}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/messages/:graphMsgId?teamId={{team_id}}&channelId={{channel_id}}",
+              "variable": [{ "key": "graphMsgId", "value": "<graph-message-id>" }],
+              "query": [
+                { "key": "teamId", "value": "{{team_id}}" },
+                { "key": "channelId", "value": "{{channel_id}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scheduled Messages",
+      "item": [
+        {
+          "name": "Create Scheduled Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/schedule",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{team_id}}\",\n  \"channelId\": \"{{channel_id}}\",\n  \"content\": \"<p>Scheduled announcement</p>\",\n  \"scheduledAt\": \"2026-05-10T09:00:00Z\",\n  \"timezone\": \"Asia/Kolkata\",\n  \"recurrence\": { \"type\": \"none\" }\n}"
+            },
+            "description": "Creates a BullMQ delayed job that posts the message at the specified UTC time."
+          }
+        },
+        {
+          "name": "List Scheduled Messages",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/schedule"
+          }
+        },
+        {
+          "name": "Update Scheduled Message",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/schedule/:id",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledAt\": \"2026-05-11T10:00:00Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Cancel Scheduled Message",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/schedule/:id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Templates",
+      "item": [
+        {
+          "name": "Save Template",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/api/templates",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Weekly Announcement\",\n  \"description\": \"Standard weekly team update\",\n  \"category\": \"Announcement\",\n  \"bodyHtml\": \"<p>Hello team, here is this week's update: {{update}}</p>\",\n  \"variables\": [{ \"name\": \"update\", \"type\": \"string\", \"required\": true }],\n  \"isPublic\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "List Templates",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/templates"
+          }
+        },
+        {
+          "name": "Update Template",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/templates/:id",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Updated Template Name\" }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Delete Template",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/templates/:id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook Subscriptions",
+      "item": [
+        {
+          "name": "Create Subscription",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/subscriptions",
+            "description": "Creates a Microsoft Graph Change Notification subscription. Requires Admin role. The backend acquires an app-only token via Client Credentials flow."
+          }
+        },
+        {
+          "name": "List Subscriptions",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/subscriptions"
+          }
+        },
+        {
+          "name": "Delete Subscription",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/subscriptions/:id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Message Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/analytics/messages"
+          }
+        },
+        {
+          "name": "Get Failed Messages",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/analytics/failures"
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/analytics/audit?limit=20&skip=0",
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "skip", "value": "0" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Outgoing Webhook (Bonus)",
+      "item": [
+        {
+          "name": "Teams Bot Command Endpoint",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bot/command",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"@Hub status\",\n  \"from\": { \"id\": \"user-aad-id\", \"name\": \"John Doe\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Receives commands from a registered Teams Outgoing Webhook. HMAC-validated via Authorization header."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/health",
+            "description": "Public endpoint. Returns status of MongoDB and Redis connections."
+          }
+        }
+      ]
+    }
+  ]
+}
