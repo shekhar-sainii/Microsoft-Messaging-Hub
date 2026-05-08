@@ -1,59 +1,83 @@
-import { MsalOboService } from '../../auth/msalOboService';
-import { userRepository, UserRepository } from './user.repository';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
+import { userRepository } from './user.repository';
 import { config } from '../../config';
+import { MsalOboService } from '../../auth/msalOboService';
 
 export class AuthService {
-  constructor(
-    private readonly users: UserRepository
-  ) {}
-
-  /**
-   * Handles user login/registration after frontend authentication.
-   * Verifies the token and creates/updates the user record.
-   */
   async handleUserLogin(idToken: string, accessToken: string) {
     const decoded: any = jwt.decode(idToken);
     
-    if (!decoded) {
-      throw new Error('Invalid ID token');
+    // Exchange for Graph token using OBO
+    const graphAccessToken = await MsalOboService.getGraphToken(accessToken);
+
+    const userData = {
+      microsoftId: decoded.oid || decoded.sub,
+      email: decoded.email || decoded.preferred_username || decoded.upn,
+      displayName: decoded.name,
+      tenantId: decoded.tid,
+      accessToken: graphAccessToken || accessToken,
+    };
+
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase()) : [];
+    const userEmail = userData.email?.toLowerCase();
+    const upn = decoded.upn?.toLowerCase();
+    const preferredUsername = decoded.preferred_username?.toLowerCase();
+    
+    // Explicitly add user's admin email to the list for safety
+    const targetAdminEmail = "admin@shekharsaini2030gmail.onmicrosoft.com";
+    
+    let role: 'admin' | 'manager' | 'member' = 'member';
+    const existingUser = await userRepository.findByMicrosoftId(userData.microsoftId);
+    
+    if (
+        userEmail === targetAdminEmail || 
+        upn === targetAdminEmail || 
+        preferredUsername === targetAdminEmail ||
+        adminEmails.includes(userEmail) ||
+        adminEmails.includes(upn) ||
+        adminEmails.includes(preferredUsername)
+    ) {
+        role = 'admin';
+    } else if (existingUser) {
+        role = existingUser.role;
     }
 
-    // Personal Microsoft accounts (MSA) have oid starting with 00000000-0000-0000
-    // Use 'sub' as the stable unique identifier for personal accounts.
-    // Work/school accounts have a real oid — use that.
-    const isPersonalAccount = !decoded.oid || decoded.oid.startsWith('00000000-0000-0000-');
-    const microsoftId = isPersonalAccount ? decoded.sub : decoded.oid;
+    const user = await userRepository.upsert(userData.microsoftId, { ...userData, role });
 
-    const { name, preferred_username, tid } = decoded;
-
-    if (!microsoftId) {
-      throw new Error('Cannot determine user identity from token');
-    }
-
-    const user = await this.users.upsert(microsoftId, {
-      microsoftId,
-      displayName: name || preferred_username || 'Unknown',
-      email: preferred_username || decoded.email || '',
-      tenantId: tid || 'personal',
-      accessToken,
-    });
+    const signOptions: SignOptions = {
+        expiresIn: '24h' // Hardcoded for type safety, or cast config value
+    };
 
     const sessionToken = jwt.sign(
-      { id: user._id, microsoftId: user.microsoftId, email: user.email },
-      config.jwt.secret,
-      { expiresIn: '24h' }
+      { 
+        id: user._id, 
+        microsoftId: user.microsoftId,
+        tenantId: user.tenantId 
+      },
+      config.jwt.secret as string,
+      signOptions
     );
 
     return { user, sessionToken };
   }
 
-  /**
-   * Helper to get an access token for Graph API on behalf of the user.
-   */
-  async getGraphToken(userAccessToken: string) {
-    return MsalOboService.getGraphToken(userAccessToken);
+  async validateSession(token: string) {
+    try {
+      const decoded: any = jwt.verify(token, config.jwt.secret as string);
+      return await userRepository.findByMicrosoftId(decoded.microsoftId);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  getAdminConsentUrl(tenantId: string = 'common') {
+    const clientId = process.env.CLIENT_ID;
+    const baseUrl = process.env.WEBHOOK_URL?.split('/webhook')[0]; // Get the base domain
+    const redirectUri = encodeURIComponent(`${baseUrl}/api/auth/admin-consent/callback`);
+    const state = 'admin_consent_state';
+    
+    return `https://login.microsoftonline.com/${tenantId}/adminconsent?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
   }
 }
 
-export const authService = new AuthService(userRepository);
+export const authService = new AuthService();

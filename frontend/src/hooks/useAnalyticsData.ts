@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { AnalyticsService } from "../api/services/analytics.service";
 
+export const useSummaryStats = () => {
+  return useQuery({
+    queryKey: ["analytics", "summary"],
+    queryFn: AnalyticsService.getSummary
+  });
+};
+
 export const useAnalyticsStats = () => {
   return useQuery({
     queryKey: ["analytics", "stats"],

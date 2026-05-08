@@ -55,3 +55,16 @@ export const useTeamPhoto = (teamId: string) => {
         enabled: !!teamId,
     });
 };
+
+export const useTeamMembers = (teamId: string | null) => {
+    return useQuery({
+        queryKey: ["team-members", teamId],
+        queryFn: async () => {
+            if (!teamId) return [];
+            const response = await apiClient.get(`/teams/${teamId}/members`);
+            return response.data.value || response.data;
+        },
+        enabled: !!teamId,
+        staleTime: 1000 * 60 * 10, // Members don't change often
+    });
+};

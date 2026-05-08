@@ -1,23 +1,25 @@
 import { Response } from 'express';
 import { teamsService } from './teams.service';
-import { AuthenticatedRequest } from '../../shared/middleware/graph.middleware';
+import { AuthenticatedRequest } from '../../shared/types';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { ResponseMessages } from '../../shared/constants';
 
 export class TeamsController {
   async getTeams(req: AuthenticatedRequest, res: Response) {
     try {
-      const teams = await teamsService.getJoinedTeams(req.graphClient!, req.user.microsoftId);
-      res.json(teams);
+      const teams = await teamsService.getJoinedTeams(req.graphClient!, req.user?.microsoftId);
+      return ApiResponse.success(res, teams, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async getInitialData(req: AuthenticatedRequest, res: Response) {
     try {
-      const data = await teamsService.getInitialData(req.graphClient!, req.user.microsoftId);
-      res.json(data);
+      const data = await teamsService.getInitialData(req.graphClient!, req.user?.microsoftId);
+      return ApiResponse.success(res, data, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
@@ -25,24 +27,20 @@ export class TeamsController {
     try {
       const teamId = req.params.teamId as string;
       const team = await teamsService.getTeamDetail(req.graphClient!, teamId);
-      res.json(team);
+      return ApiResponse.success(res, team, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async getChannels(req: AuthenticatedRequest, res: Response) {
     try {
       const teamId = req.params.teamId as string;
-      const channels = await teamsService.getTeamChannels(req.graphClient!, teamId, req.user.microsoftId);
-
-      // Track recent channels in Redis (last 5, 7-day expiry)
-      // Called when user expands a team to see channels
-      await teamsService.trackRecentTeam(req.user.microsoftId, teamId);
-
-      res.json(channels);
+      const channels = await teamsService.getTeamChannels(req.graphClient!, teamId, req.user?.microsoftId);
+      await teamsService.trackRecentTeam(req.user?.microsoftId, teamId);
+      return ApiResponse.success(res, channels, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
@@ -51,19 +49,19 @@ export class TeamsController {
       const teamId = req.params.teamId as string;
       const chId = req.params.chId as string;
       const channel = await teamsService.getChannelDetail(req.graphClient!, teamId, chId);
-      res.json(channel);
+      return ApiResponse.success(res, channel, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async getTeamMembers(req: AuthenticatedRequest, res: Response) {
     try {
       const teamId = req.params.teamId as string;
-      const members = await teamsService.getTeamMembers(req.graphClient!, teamId, req.user.microsoftId);
-      res.json(members);
+      const members = await teamsService.getTeamMembers(req.graphClient!, teamId, req.user?.microsoftId);
+      return ApiResponse.success(res, members, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 }

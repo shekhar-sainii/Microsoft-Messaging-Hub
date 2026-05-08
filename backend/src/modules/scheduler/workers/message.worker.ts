@@ -1,6 +1,5 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../../../config/redis';
-import ScheduledMessageModel from '../../../models/ScheduledMessage';
 import { ClientCredentialsService } from '../../../auth/clientCredentials';
 import { createGraphClient } from '../../../config/graphClient';
 import { messagesService } from '../../messages/messages.service';
@@ -8,6 +7,7 @@ import { socketService } from '../../../services/socket.service';
 import { queueService } from '../queue.service';
 import { logger } from '../../../utils/logger';
 import type { RecurrenceType } from '../../../models/ScheduledMessage';
+import { schedulerRepository } from '../scheduler.repository';
 
 export const startMessageWorker = () => {
     const worker = new Worker(
@@ -44,20 +44,16 @@ export const startMessageWorker = () => {
                     options
                 );
 
-                // 3. Update DB status
-                const dbMsg = await ScheduledMessageModel.findByIdAndUpdate(
-                    dbId,
-                    { status: 'sent', error: null },
-                    { new: true }
-                );
+                // 3. Update DB status via modular repository
+                const dbMsg = await schedulerRepository.updateStatus(dbId, 'sent');
 
-                // 4. Notify UI — contract event: schedule:sent
+                // 4. Notify UI
                 socketService.emitToUser(userId, 'schedule:sent', {
                     scheduledMsgId: dbId,
                     sentAt: new Date(),
                 });
 
-                // 5. Schedule next recurrence if applicable
+                // 5. Schedule next recurrence
                 if (recurrence && recurrence !== 'none' && dbMsg) {
                     await queueService.scheduleNextRecurrence(
                         userId,
@@ -73,35 +69,22 @@ export const startMessageWorker = () => {
 
                 logger.info('Successfully delivered scheduled message', { dbId });
             } catch (error: any) {
-                // Handle Graph rate limiting — log Retry-After for observability
                 if (error.response?.status === 429) {
-                    const retryAfter = parseInt(
-                        error.response.headers['retry-after'] || '60',
-                        10
-                    );
-                    logger.warn(`Scheduler rate limited. BullMQ will retry. Retry-After: ${retryAfter}s`, {
-                        dbId,
-                    });
+                    logger.warn(`Scheduler rate limited. BullMQ will retry.`, { dbId });
                 }
 
-                logger.error('Scheduled delivery failed', {
-                    jobId: job.id,
-                    error: error.message,
-                });
+                logger.error('Scheduled delivery failed', { jobId: job.id, error: error.message });
 
-                // Update DB
-                await ScheduledMessageModel.findByIdAndUpdate(dbId, {
-                    status: 'failed',
-                    error: error.message,
-                });
+                // Update DB via modular repository
+                await schedulerRepository.updateStatus(dbId, 'failed', error.message);
 
-                // Notify UI — contract event: schedule:failed
+                // Notify UI
                 socketService.emitToUser(userId, 'schedule:failed', {
                     scheduledMsgId: dbId,
                     error: error.message,
                 });
 
-                throw error; // Re-throw for BullMQ retry logic
+                throw error;
             }
         },
         { connection: redisConnection }

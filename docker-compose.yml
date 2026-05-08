@@ -1,20 +1,14 @@
-version: '3.8'
 
 services:
   # ─── MongoDB ─────────────────────────────────────────────────────────────────
-  mongodb:
+  mongodb_new:
     image: mongo:7
-    container_name: messaging-hub-db
+    container_name: messaging-hub-db-new
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - mongodb_data_new:/data/db
 
   # ─── Redis ────────────────────────────────────────────────────────────────────
   redis:
@@ -41,15 +35,13 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/microsoft-messaging-hub
+      - MONGODB_URI=mongodb://mongodb_new:27017/microsoft-messaging-hub
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=production
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mongodb_new
+      - redis
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 15s
@@ -86,4 +78,4 @@ services:
       - dev   # Only starts with: docker-compose --profile dev up
 
 volumes:
-  mongodb_data:
+  mongodb_data_new:

@@ -1,127 +1,81 @@
 import { Request, Response } from 'express';
-import { webhookService } from './webhook.service';
-import { AuthenticatedRequest } from '../../shared/middleware/graph.middleware';
-import { cryptoUtils } from '../../utils/crypto.utils';
+import { logger } from '../../utils/logger';
+import { CryptoUtils } from '../../utils/crypto.utils';
 import { socketService } from '../../services/socket.service';
+import { webhookService } from './webhook.service';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { HttpStatus, ResponseMessages } from '../../shared/constants';
+import { AuthenticatedRequest } from '../../shared/types';
 
 export class WebhookController {
   /**
-   * Handles the Graph API validation handshake and incoming notifications.
+   * Handles the validation handshake and incoming notifications from Graph.
    */
-  async handleWebhook(req: Request, res: Response) {
-    // 1. Handle Handshake
+  async handleNotification(req: Request, res: Response) {
     const validationToken = req.query.validationToken as string;
     if (validationToken) {
-      console.log('Webhook validation handshake received');
       return res.status(200).set('Content-Type', 'text/plain').send(validationToken);
     }
 
-    // 2. Handle Notifications
-    const { value } = req.body;
-    if (value && Array.isArray(value)) {
-      console.log(`Received ${value.length} notifications`);
-      
-      for (const notification of value) {
-        try {
-          // Verify Client State
-          if (notification.clientState !== process.env.WEBHOOK_CLIENT_STATE) {
-            console.warn('Invalid client state received');
-            continue;
-          }
-
-          let messageData = notification.resourceData;
-
-          // Decrypt if encrypted
-          if (notification.encryptedContent) {
-            console.log('Decrypting notification content...');
-            const { data, dataKey, dataSignature } = notification.encryptedContent;
-            
-            // Decrypt symmetric key using RSA private key
-            const symmetricKey = cryptoUtils.decryptSymmetricKey(dataKey);
-            
-            // Decrypt actual content using symmetric key
-            messageData = cryptoUtils.decryptContent(data, symmetricKey);
-          }
-
-          // Process decrypted message data
-          if (messageData) {
-            console.log('Processed Message:', messageData.body?.content);
-            
-            // Emit to relevant Socket.IO channel room
-            // Resource format: "teams('teamId')/channels('channelId')/messages('messageId')"
-            const channelId = messageData.channelId || notification.resource.split("'")[3];
-            
-            // Determine event type based on changeType
-            const changeType = notification.changeType;
-
-            if (changeType === 'created') {
-              // Check if it's a reply (has replyToId) or a new message
-              if (messageData.replyToId) {
-                // Contract event: message:reply
-                socketService.emitToChannel(channelId, 'message:reply', {
-                  teamId: messageData.channelIdentity?.teamId,
-                  channelId,
-                  reply: {
-                    id: messageData.id,
-                    content: messageData.body?.content,
-                    from: messageData.from?.user?.displayName,
-                    createdDateTime: messageData.createdDateTime,
-                    replyToId: messageData.replyToId,
-                  }
-                });
-              } else {
-                // New top-level message
-                socketService.emitToChannel(channelId, 'message:new', {
-                  id: messageData.id,
-                  content: messageData.body?.content,
-                  from: messageData.from?.user?.displayName,
-                  createdDateTime: messageData.createdDateTime,
-                });
-              }
-            } else if (changeType === 'updated') {
-              // Contract event: message:updated
-              socketService.emitToChannel(channelId, 'message:updated', {
-                graphMsgId: messageData.id,
-                updatedContent: messageData.body?.content,
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error processing notification:', error);
-        }
-      }
+    const notifications = req.body.value;
+    if (!notifications || !Array.isArray(notifications)) {
+      return res.status(202).send();
     }
 
-    // Always return 202 Accepted immediately
     res.status(202).send();
+
+    for (const notification of notifications) {
+      try {
+        if (notification.clientState !== process.env.WEBHOOK_CLIENT_STATE) continue;
+
+        let resourceData = notification.resourceData;
+        if (notification.encryptedContent) {
+          const encryptedContent = notification.encryptedContent;
+          const symmetricKey = CryptoUtils.decryptSymmetricKey(encryptedContent.dataKey);
+          resourceData = CryptoUtils.decryptPayload(encryptedContent.data, symmetricKey);
+        }
+
+        if (resourceData) {
+          const channelId = resourceData.id || notification.resource.split('/').pop();
+          socketService.emitToChannel(channelId, 'message:reply', resourceData);
+        }
+      } catch (err) {
+        logger.error('Failed to process notification', err);
+      }
+    }
   }
 
+  // Management Methods
   async createSubscription(req: AuthenticatedRequest, res: Response) {
     try {
-      const tenantId = (req as any).user?.tenantId || 'common';
-      const subscription = await webhookService.createSubscription(req.graphClient!, tenantId);
-      res.json(subscription);
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) throw new Error('Tenant ID not found in session');
+        
+        const result = await webhookService.createSubscription(req.graphClient!, tenantId);
+        return ApiResponse.success(res, result, ResponseMessages.CREATED, HttpStatus.CREATED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+        return ApiResponse.error(res, error);
     }
   }
 
   async listSubscriptions(req: Request, res: Response) {
     try {
-      const subs = await webhookService.listSubscriptions();
-      res.json(subs);
+        const result = await webhookService.listSubscriptions();
+        return ApiResponse.success(res, result, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+        return ApiResponse.error(res, error);
     }
   }
 
   async deleteSubscription(req: AuthenticatedRequest, res: Response) {
     try {
-      const id = req.params.id as string;
-      await webhookService.deleteSubscription(req.graphClient!, id);
-      res.json({ success: true });
+        const id = req.params.id;
+        if (typeof id !== 'string') throw new Error('Invalid subscription ID');
+        
+        await webhookService.deleteSubscription(req.graphClient!, id);
+        return ApiResponse.success(res, null, ResponseMessages.DELETED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+        return ApiResponse.error(res, error);
     }
   }
 }

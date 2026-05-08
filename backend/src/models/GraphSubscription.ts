@@ -3,10 +3,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IGraphSubscription extends Document {
   subscriptionId: string;
   resource: string;
-  changeType: string;
-  clientState: string;
+  tenantId: string;
   expirationDateTime: Date;
-  userId: string;
+  deltaLink?: string; // For catch-up logic
+  active: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -14,10 +14,10 @@ export interface IGraphSubscription extends Document {
 const GraphSubscriptionSchema: Schema = new Schema({
   subscriptionId: { type: String, required: true, unique: true },
   resource: { type: String, required: true },
-  changeType: { type: String, required: true },
-  clientState: { type: String, required: true },
+  tenantId: { type: String, required: true },
   expirationDateTime: { type: Date, required: true },
-  userId: { type: String, required: true },
+  deltaLink: { type: String },
+  active: { type: Boolean, default: true }
 }, { timestamps: true });
 
 export const GraphSubscriptionModel = mongoose.model<IGraphSubscription>('GraphSubscription', GraphSubscriptionSchema);

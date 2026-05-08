@@ -1,34 +1,26 @@
-import MessageTemplateModel from '../../models/MessageTemplate';
+import { templateRepository } from './template.repository';
 
 export class TemplateService {
-  async saveTemplate(userId: string, name: string, content: any, description?: string) {
-    const template = new MessageTemplateModel({
+  async saveTemplate(userId: string, name: string, content: any, description?: string, type: string = 'adaptive') {
+    return templateRepository.create({
       userId,
       name,
       content,
-      description
-    });
-    return template.save();
+      description,
+      type
+    } as any);
   }
 
   async listTemplates(userId: string) {
-    return MessageTemplateModel.find({ userId }).sort({ updatedAt: -1 });
+    return templateRepository.findByUserId(userId);
   }
 
-  async getTemplate(userId: string, templateId: string) {
-    return MessageTemplateModel.findOne({ _id: templateId, userId });
+  async updateTemplate(userId: string, id: string, data: any) {
+    return templateRepository.update({ _id: id, userId }, data);
   }
 
-  async deleteTemplate(userId: string, templateId: string) {
-    return MessageTemplateModel.findOneAndDelete({ _id: templateId, userId });
-  }
-
-  async updateTemplate(userId: string, templateId: string, data: { name?: string; content?: any; description?: string }) {
-    return MessageTemplateModel.findOneAndUpdate(
-      { _id: templateId, userId },
-      data,
-      { new: true }
-    );
+  async deleteTemplate(userId: string, id: string) {
+    return templateRepository.delete({ _id: id, userId });
   }
 }
 

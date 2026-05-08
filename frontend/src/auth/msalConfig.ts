@@ -1,6 +1,6 @@
-import { type Configuration, LogLevel } from "@azure/msal-browser";
+import { LogLevel } from "@azure/msal-browser";
 
-export const msalConfig: Configuration = {
+export const msalConfig: any = {
     auth: {
         clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
         authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID || "common"}`,
@@ -13,7 +13,7 @@ export const msalConfig: Configuration = {
     },
     system: {
         loggerOptions: {
-            loggerCallback: (level, message, containsPii) => {
+            loggerCallback: (level: any, message: any, containsPii: any) => {
                 if (containsPii) return;
                 switch (level) {
                     case LogLevel.Error: console.error(message); break;

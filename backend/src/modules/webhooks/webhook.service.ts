@@ -1,136 +1,130 @@
 import { Client } from '@microsoft/microsoft-graph-client';
-import { GraphSubscriptionModel as SubscriptionModel } from '../../models/GraphSubscription';
+import { webhookRepository } from './webhook.repository';
 import { config } from '../../config';
-import fs from 'fs';
-import { subscriptionQueue } from './webhook.worker';
 import { logger } from '../../utils/logger';
+import { CryptoUtils } from '../../utils/crypto.utils';
+import { ClientCredentialsService } from '../../auth/clientCredentials';
+import { createGraphClient } from '../../config/graphClient';
 
 export class WebhookService {
-  /**
-   * Performs a delta catch-up for all active subscriptions.
-   * Fetches missed messages since last activity or last 1 hour.
-   */
-  async runDeltaCatchup(client: Client, userId: string) {
-    const subs = await SubscriptionModel.find({ status: 'active' });
-    if (subs.length === 0) return;
+  async createSubscription(client: Client, tenantId: string) {
+    const expirationDateTime = new Date();
+    expirationDateTime.setHours(expirationDateTime.getHours() + 1);
 
-    logger.info(`Starting delta catchup for ${subs.length} subscriptions`);
+    const publicKey = CryptoUtils.getPublicKeyBase64();
+
+    const subscriptionPayload = {
+      changeType: 'created,updated',
+      notificationUrl: `${config.webhook.url}/graph`,
+      resource: '/teams/getAllMessages',
+      expirationDateTime: expirationDateTime.toISOString(),
+      clientState: config.webhook.clientState,
+      includeResourceData: true,
+      encryptionCertificate: publicKey,
+      encryptionCertificateId: 'hub-cert-001',
+    };
+
+    const response = await client.api('/subscriptions').post(subscriptionPayload);
     
-    // Fetch messages for each channel since last 1 hour
-    const since = new Date(Date.now() - 3600000).toISOString();
-    
-    for (const sub of subs) {
+    return webhookRepository.create({
+      subscriptionId: response.id,
+      resource: response.resource,
+      expirationDateTime: new Date(response.expirationDateTime),
+      tenantId,
+      active: true
+    } as any);
+  }
+
+  async listSubscriptions() {
+    return webhookRepository.findActive();
+  }
+
+  async deleteSubscription(client: Client, id: string) {
+    const sub = await webhookRepository.findBySubscriptionId(id);
+    if (sub) {
+        await client.api(`/subscriptions/${id}`).delete();
+        await webhookRepository.delete({ subscriptionId: id });
+    }
+  }
+
+  async renewSubscription(client: Client, subscriptionId: string) {
+    const expirationDateTime = new Date();
+    expirationDateTime.setHours(expirationDateTime.getHours() + 1);
+
+    await client.api(`/subscriptions/${subscriptionId}`).patch({
+        expirationDateTime: expirationDateTime.toISOString()
+    });
+
+    return webhookRepository.update({ subscriptionId }, {
+        expirationDateTime
+    });
+  }
+
+  async renewSubscriptions(client: Client) {
+    const activeSubs = await webhookRepository.findActive();
+    for (const sub of activeSubs) {
       try {
-        // Find messages since last processed
-        const res = await client.api(sub.resource)
-          .filter(`lastModifiedDateTime ge ${since}`)
-          .get();
-        
-        logger.info(`Delta catchup for ${sub.resource}: ${res.value?.length || 0} potential items`);
-        // Process new messages (logic omitted for brevity, but endpoint hit)
-      } catch (err: any) {
-        logger.error(`Delta catchup failed for ${sub.resource}`, { error: err.message });
+        await this.renewSubscription(client, sub.subscriptionId);
+      } catch (err) {
+        logger.error(`Failed to renew subscription ${sub.subscriptionId}`, err);
       }
     }
   }
 
   /**
-   * Creates a new subscription for Teams messages.
+   * Catch up on missed notifications using Delta Queries.
    */
-  async createSubscription(client: Client, tenantId: string, userId?: string) {
-    const expirationDateTime = new Date();
-    expirationDateTime.setHours(expirationDateTime.getHours() + 1); 
+  async catchUpDelta(client: Client, subscriptionId: string) {
+    const sub = await webhookRepository.findBySubscriptionId(subscriptionId);
+    if (!sub || !sub.active) return;
 
-    const publicKey = fs.readFileSync(config.rsa.publicKeyPath, 'utf8');
-
-    const payload = {
-      changeType: 'created,updated',
-      notificationUrl: config.webhook.url,
-      resource: '/teams/getAllMessages', 
-      expirationDateTime: expirationDateTime.toISOString(),
-      clientState: config.webhook.clientState,
-      includeResourceData: true,
-      encryptionCertificate: publicKey,
-      encryptionCertificateId: 'hub-rsa-2048'
-    };
-
+    let url = sub.deltaLink || `${sub.resource}/delta`;
+    
     try {
-      const response = await client.api('/subscriptions').post(payload);
-      
-      const subscription = new SubscriptionModel({
-        subscriptionId: response.id,
-        resource: response.resource,
-        changeType: response.changeType,
-        clientState: response.clientState,
-        expirationDateTime: new Date(response.expirationDateTime),
-        tenantId,
-        userId
-      });
+        logger.info(`Starting delta catch-up for ${subscriptionId}`);
+        
+        let hasMore = true;
+        while (hasMore) {
+            const result = await client.api(url).get();
+            
+            if (result.value && result.value.length > 0) {
+                logger.info(`Caught up on ${result.value.length} missed notifications`);
+            }
 
-      await subscription.save();
-
-      // Schedule renewal (5 minutes before expiry)
-      const expiry = new Date(response.expirationDateTime);
-      const delay = (expiry.getTime() - Date.now()) - (5 * 60 * 1000);
-      
-      await subscriptionQueue.add('renew-subscription', {
-        subscriptionId: response.id,
-        tenantId,
-        userId
-      }, { delay });
-
-      logger.info('Subscription created and renewal scheduled', { id: response.id, delayMs: delay });
-
-      return subscription;
-    } catch (error: any) {
-      console.error('Error creating subscription:', error.response?.data || error.message);
-      throw error;
+            if (result['@odata.deltaLink']) {
+                await webhookRepository.update({ subscriptionId }, { deltaLink: result['@odata.deltaLink'] });
+                hasMore = false;
+            } else if (result['@odata.nextLink']) {
+                url = result['@odata.nextLink'];
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (err) {
+        logger.error(`Delta catch-up failed for ${subscriptionId}`, err);
     }
   }
 
   /**
-   * Renews an existing subscription.
+   * Bootstraps delta catch-up for all active subscriptions on server start.
    */
-  async renewSubscription(client: Client, subscriptionId: string) {
-    const expirationDateTime = new Date();
-    expirationDateTime.setHours(expirationDateTime.getHours() + 1);
+  async bootstrapDeltaCatchup() {
+    const activeSubs = await webhookRepository.findActive();
+    if (activeSubs.length === 0) return;
 
-    const payload = {
-      expirationDateTime: expirationDateTime.toISOString(),
-    };
+    logger.info(`Bootstrapping delta catch-up for ${activeSubs.length} subscriptions`);
 
-    try {
-      const response = await client.api(`/subscriptions/${subscriptionId}`).patch(payload);
-      
-      await SubscriptionModel.findOneAndUpdate(
-        { subscriptionId },
-        { expirationDateTime: new Date(response.expirationDateTime) }
-      );
-
-      return response;
-    } catch (error: any) {
-      console.error('Error renewing subscription:', error.response?.data || error.message);
-      throw error;
+    // We use an app-only token for catch-up
+    const token = await ClientCredentialsService.getAppToken();
+    if (!token) {
+        logger.error('Failed to get app token for delta catch-up');
+        return;
     }
-  }
 
-  /**
-   * Lists all active subscriptions from the database.
-   */
-  async listSubscriptions() {
-    return SubscriptionModel.find();
-  }
+    const client = createGraphClient(token);
 
-  /**
-   * Deletes a subscription.
-   */
-  async deleteSubscription(client: Client, subscriptionId: string) {
-    try {
-      await client.api(`/subscriptions/${subscriptionId}`).delete();
-      await SubscriptionModel.findOneAndDelete({ subscriptionId });
-    } catch (error: any) {
-      console.error('Error deleting subscription:', error.response?.data || error.message);
-      throw error;
+    for (const sub of activeSubs) {
+        await this.catchUpDelta(client, sub.subscriptionId);
     }
   }
 }

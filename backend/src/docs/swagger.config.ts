@@ -1,9 +1,8 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
 
 /**
  * OpenAPI 3.1 base configuration.
- * Route-level documentation is written as JSDoc in each module's routes file,
- * and shared schemas are defined in src/docs/schemas/.
  */
 const swaggerDefinition: swaggerJsdoc.OAS3Definition = {
   openapi: '3.1.0',
@@ -17,14 +16,13 @@ real-time reply notifications via Graph webhooks.
 
 ## Authentication
 
-All protected routes require a \`Bearer\` token obtained from \`POST /api/auth/msal-token\`.
+All protected routes require a session token obtained from \`POST /api/auth/msal-token\`.
+The token is typically set in an httpOnly cookie, but can also be passed in the
+Authorization header for API testing.
 
 \`\`\`
 Authorization: Bearer <session_token>
 \`\`\`
-
-The session token is a JWT issued by this backend after completing the
-**On-Behalf-Of (OBO)** token exchange with Microsoft Graph.
     `,
     contact: {
       name: 'API Support',
@@ -40,10 +38,6 @@ The session token is a JWT issued by this backend after completing the
       url: 'http://localhost:3000/api',
       description: 'Local Development Server',
     },
-    {
-      url: 'https://your-production-domain.com/api',
-      description: 'Production Server',
-    },
   ],
   components: {
     securitySchemes: {
@@ -57,26 +51,22 @@ The session token is a JWT issued by this backend after completing the
   },
   security: [{ BearerAuth: [] }],
   tags: [
-    { name: 'Auth', description: 'Authentication & session management (MSAL OBO flow)' },
+    { name: 'Auth', description: 'Authentication & session management' },
     { name: 'Teams', description: 'Microsoft Teams & Channel browser' },
-    { name: 'Messages', description: 'Message composer, history, search, and replies' },
-    { name: 'Scheduler', description: 'BullMQ-based scheduled & recurring message jobs' },
-    { name: 'Templates', description: 'Adaptive Card template library (CRUD)' },
-    { name: 'Subscriptions', description: 'Microsoft Graph Change Notification subscriptions' },
-    { name: 'Analytics', description: 'Sent message stats, failure logs, audit trail' },
-    { name: 'Bot', description: 'Outgoing Webhook command handler + Adaptive Card Action.Submit' },
-    { name: 'Health', description: 'Liveness probe' },
+    { name: 'Messages', description: 'Message composer, history, and search' },
+    { name: 'Scheduler', description: 'Scheduled & recurring message jobs' },
+    { name: 'Templates', description: 'Adaptive Card template library' },
+    { name: 'Subscriptions', description: 'Microsoft Graph webhooks' },
+    { name: 'Analytics', description: 'Usage stats and audit trail' },
   ],
 };
 
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
-  // Glob patterns — swagger-jsdoc scans these files for @swagger JSDoc blocks
   apis: [
-    './src/modules/*/**.routes.ts',
-    './src/modules/bot/bot.routes.ts',
-    './src/docs/schemas/*.ts',
-    './src/index.ts',
+    path.join(process.cwd(), 'src/docs/swagger/*.doc.ts'),
+    path.join(process.cwd(), 'src/docs/schemas/*.ts'),
+    path.join(process.cwd(), 'src/index.ts'),
   ],
 };
 

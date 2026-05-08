@@ -15,13 +15,11 @@ export const config = {
     tenantId: process.env.TENANT_ID,
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    // Use 'common' authority so personal Microsoft accounts (MSA) work.
-    // For OBO flow with personal accounts, we use the token's own tid.
     authority: `https://login.microsoftonline.com/common`,
   },
   webhook: {
-    url: process.env.WEBHOOK_URL,
-    clientState: process.env.WEBHOOK_CLIENT_STATE,
+    url: process.env.WEBHOOK_URL || '',
+    clientState: process.env.WEBHOOK_CLIENT_STATE || '',
   },
   rsa: {
     privateKeyPath: process.env.RSA_PRIVATE_KEY_PATH || './certs/private.pem',
@@ -29,6 +27,7 @@ export const config = {
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'supersecret',
+    expiresIn: '24h',
   },
   teamsWebhookToken: process.env.TEAMS_OUTGOING_WEBHOOK_TOKEN || '',
 };

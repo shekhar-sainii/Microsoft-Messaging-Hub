@@ -48,3 +48,11 @@ export const useDeleteMessage = () => {
     }
   });
 };
+
+export const useMessageReplies = (teamId: string, channelId: string, messageId: string, enabled: boolean) => {
+  return useQuery({
+    queryKey: ["messages", "replies", messageId],
+    queryFn: () => MessagesService.getReplies(teamId, channelId, messageId),
+    enabled: !!messageId && enabled
+  });
+};

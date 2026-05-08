@@ -1,25 +1,25 @@
-import { useMsal } from "@azure/msal-react";
 import { LogOut } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "../../../auth/useAuth";
 
 export const LogoutButton = () => {
-    const { instance } = useMsal();
+    const { logout } = useAuth();
 
     const handleLogout = () => {
-        instance.logoutRedirect().catch((e) => {
+        logout().catch((e) => {
             console.error(e);
         });
     };
 
     return (
         <motion.button
-            whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 68, 68, 0.15)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.2)", color: "#f87171" }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2.5 py-3.5 text-white/70 bg-white/5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-white/5 shadow-lg group-hover:text-white"
+            title="Sign Out"
+            className="w-12 h-12 flex items-center justify-center text-white/50 bg-white/5 rounded-xl transition-all border border-white/5 mx-auto"
         >
-            <LogOut size={16} strokeWidth={2.5} />
-            <span className="leading-none">Sign Out</span>
+            <LogOut size={20} strokeWidth={2.5} />
         </motion.button>
     );
 };

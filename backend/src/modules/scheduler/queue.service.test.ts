@@ -17,7 +17,7 @@ jest.mock('../../models/ScheduledMessage', () => {
         save: mockSave,
         jobId: undefined,
     }));
-    MockModel.findById = jest.fn();
+    (MockModel as any).findById = jest.fn();
     return { default: MockModel, ScheduledMessageModel: MockModel };
 });
 

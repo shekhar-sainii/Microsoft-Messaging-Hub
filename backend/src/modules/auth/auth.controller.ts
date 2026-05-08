@@ -1,92 +1,56 @@
 import { Request, Response } from 'express';
 import { authService } from './auth.service';
-import { AuthenticatedRequest } from '../../shared/middleware/graph.middleware';
-import { redis } from '../../config/redis';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { HttpStatus, ResponseMessages } from '../../shared/constants';
+import { AuthenticatedRequest } from '../../shared/types';
 
 export class AuthController {
-  /**
-   * Exchange MSAL access_token for backend session token (OBO Flow).
-   * Sets the session JWT as an httpOnly cookie (never exposed to JS/localStorage).
-   */
-  async msalTokenExchange(req: Request, res: Response) {
+  async login(req: Request, res: Response) {
     try {
       const { idToken, accessToken } = req.body;
-      
-      if (!idToken || !accessToken) {
-        return res.status(400).json({ error: 'Missing MSAL tokens' });
-      }
-
       const result = await authService.handleUserLogin(idToken, accessToken);
-
-      // Set session token as httpOnly cookie — never exposed to localStorage
+      
       res.cookie('session_token', result.sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',   // 'lax' works for localhost:5173 → localhost:3000
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
       });
 
-      // Return user profile but NOT the raw token
-      res.json({ user: result.user });
+      return ApiResponse.success(res, result.user, ResponseMessages.AUTH_SUCCESS);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error, HttpStatus.UNAUTHORIZED);
     }
   }
 
-  /**
-   * Get current user profile — merges local DB data with Graph /me
-   * Also tracks recent channels in Redis (7-day expiry, last 5)
-   */
   async getMe(req: AuthenticatedRequest, res: Response) {
     try {
-      const user = req.user;
-
-      // Fetch Graph /me for live displayName, avatar, tenant info
-      let graphProfile: any = null;
-      try {
-        if (req.graphClient) {
-          graphProfile = await req.graphClient.api('/me')
-            .select('id,displayName,mail,userPrincipalName,jobTitle,officeLocation')
-            .get();
-        }
-      } catch (_) {
-        // Graph call optional — return local data if it fails
-      }
-
-      // Fetch recent channels from Redis
-      const recentKey = `recent:channels:${user.microsoftId}`;
-      const recentRaw = await redis.get(recentKey);
-      const recentChannels = recentRaw ? JSON.parse(recentRaw) : [];
-
-      res.json({
-        user: {
-          ...user.toObject?.() ?? user,
-          displayName: graphProfile?.displayName || user.displayName,
-          email: graphProfile?.mail || graphProfile?.userPrincipalName || user.email,
-          jobTitle: graphProfile?.jobTitle,
-          officeLocation: graphProfile?.officeLocation,
-        },
-        recentChannels,
-      });
+      return ApiResponse.success(res, req.user, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
-  /**
-   * Logout and clear session
-   */
-  async logout(req: AuthenticatedRequest, res: Response) {
-    try {
-        if (req.user?.microsoftId) {
-            await redis.del(`msal_cache`);
-        }
-        // Clear the httpOnly session cookie
-        res.clearCookie('session_token', { httpOnly: true, sameSite: 'strict' });
-        res.json({ success: true, message: 'Logged out successfully' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+  async logout(req: any, res: Response) {
+    res.clearCookie('session_token');
+    return ApiResponse.success(res, null, ResponseMessages.LOGOUT_SUCCESS);
+  }
+
+  async adminConsent(req: Request, res: Response) {
+    const { tenantId } = req.query;
+    const url = authService.getAdminConsentUrl(tenantId as string);
+    return res.redirect(url);
+  }
+
+  async handleAdminConsentCallback(req: Request, res: Response) {
+    const { admin_consent, tenant, error, error_description } = req.query;
+    
+    if (error) {
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=${error_description}`);
     }
+
+    // Redirect to frontend with success flag
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?consent=granted&tenant=${tenant}`);
   }
 }
 

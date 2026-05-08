@@ -2,9 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files and install ALL deps (including devDependencies for build)
+# Copy package files and install ALL deps
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source and build TypeScript
 COPY . .
@@ -20,13 +20,13 @@ ENV NODE_ENV=production
 
 # Copy package files and install production deps only
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy cert files if they exist
-COPY certs/ ./certs/ 2>/dev/null || true
+# Copy cert files
+COPY certs/ ./certs/
 
 EXPOSE 3000
 

@@ -1,74 +1,45 @@
 import { Response } from 'express';
 import { queueService } from './queue.service';
-import { AuthenticatedRequest } from '../../auth/authMiddleware';
-import ScheduledMessageModel from '../../models/ScheduledMessage';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { ResponseMessages } from '../../shared/constants';
+import { AuthenticatedRequest } from '../../shared/types';
 
 export class SchedulerController {
-  async schedule(req: AuthenticatedRequest, res: Response) {
+  async scheduleMessage(req: AuthenticatedRequest, res: Response) {
     try {
-      const { teamId, channelId, content, scheduledFor, recurrence, recurrenceEndDate } = req.body;
+      const { teamId, channelId, content, scheduledAt, recurrence, until } = req.body;
       const result = await queueService.scheduleMessage(
-        req.user.microsoftId,
+        req.user?.microsoftId,
         teamId,
         channelId,
         content,
-        new Date(scheduledFor),
-        recurrence || 'none',
-        recurrenceEndDate ? new Date(recurrenceEndDate) : undefined
+        new Date(scheduledAt),
+        recurrence,
+        until ? new Date(until) : undefined
       );
-      res.json(result);
+      return ApiResponse.success(res, result, ResponseMessages.CREATED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
-  async list(req: AuthenticatedRequest, res: Response) {
+  async getScheduledMessages(req: AuthenticatedRequest, res: Response) {
     try {
-      const messages = await queueService.getScheduledMessages(req.user.microsoftId);
-      res.json(messages);
+      const result = await queueService.getScheduledMessages(req.user?.microsoftId);
+      return ApiResponse.success(res, result, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
-  async update(req: AuthenticatedRequest, res: Response) {
-    try {
-        const id = req.params.id as string;
-        const content = req.body.content as string;
-        const scheduledFor = req.body.scheduledFor;
-        
-        const message = await ScheduledMessageModel.findOne({ _id: id, userId: req.user.microsoftId });
-        if (!message) return res.status(404).json({ error: 'Message not found' });
-        if (message.status !== 'pending') return res.status(400).json({ error: 'Only pending messages can be updated' });
-
-        if (scheduledFor) {
-            await queueService.cancelMessage(id);
-            const newMessage = await queueService.scheduleMessage(
-                req.user.microsoftId,
-                message.teamId,
-                message.channelId,
-                content || message.content,
-                new Date(scheduledFor)
-            );
-            return res.json(newMessage);
-        }
-
-        message.content = content || message.content;
-        await message.save();
-        res.json(message);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-  }
-
-  async cancel(req: AuthenticatedRequest, res: Response) {
+  async cancelMessage(req: AuthenticatedRequest, res: Response) {
     try {
       const id = req.params.id as string;
       const cancelSeries = req.query.cancelSeries === 'true';
-      const result = await queueService.cancelMessage(id, cancelSeries);
-      res.json(result);
+      await queueService.cancelMessage(id, cancelSeries);
+      return ApiResponse.success(res, null, ResponseMessages.DELETED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 }

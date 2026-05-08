@@ -1,10 +1,11 @@
-import { Layout as LayoutIcon, PenTool, Settings, MessageSquare, Shield, Zap, Globe, History, Library, CalendarClock } from "lucide-react";
+import { Layout as LayoutIcon, PenTool, Settings, MessageSquare, Shield, Zap, Globe, History, Library, CalendarClock, LayoutGrid } from "lucide-react";
 import { Dashboard } from "../features/dashboard/components/Dashboard";
 import { BuilderLayout } from "../features/builder/components/BuilderLayout";
 import { AdminDashboard } from "../features/admin/components/AdminDashboard";
 import { HistoryList } from "../features/history/components/HistoryList";
 import { TemplateLibrary } from "../features/templates/components/TemplateLibrary";
 import { SchedulerDashboard } from "../features/scheduler/components/SchedulerDashboard";
+import { WorkspacePage } from "../pages/WorkspacePage";
 
 export const NAVIGATION_TABS = [
   { 
@@ -12,48 +13,70 @@ export const NAVIGATION_TABS = [
     icon: LayoutIcon, 
     label: 'Dash',
     title: 'Dashboard',
+    path: '/dashboard',
     description: 'Overview of your Teams activities and metrics.',
-    component: Dashboard 
+    component: Dashboard,
+    roles: ['user', 'admin']
+  },
+  {
+    id: 'workspace',
+    icon: LayoutGrid,
+    label: 'Teams',
+    title: 'Organization Workspace',
+    path: '/workspace',
+    description: 'Real-time messaging and channel management.',
+    component: WorkspacePage,
+    roles: ['user', 'admin']
   },
   {
     id: 'history',
     icon: History,
     label: 'History',
     title: 'Message History',
+    path: '/history',
     description: 'Review and manage your sent communications.',
-    component: HistoryList
+    component: HistoryList,
+    roles: ['user', 'admin']
   },
   {
     id: 'templates',
     icon: Library,
     label: 'Templates',
     title: 'Template Library',
+    path: '/templates',
     description: 'Manage reusable message layouts and adaptive cards.',
-    component: TemplateLibrary
+    component: TemplateLibrary,
+    roles: ['user', 'admin']
   },
   {
     id: 'scheduler',
     icon: CalendarClock,
     label: 'Scheduler',
     title: 'Scheduled Messages',
+    path: '/scheduler',
     description: 'Manage messages queued for future delivery.',
-    component: SchedulerDashboard
+    component: SchedulerDashboard,
+    roles: ['user', 'admin']
   },
   { 
     id: 'builder', 
     icon: PenTool, 
     label: 'Designer',
     title: 'Adaptive Card Builder',
+    path: '/builder',
     description: 'Design complex interactive experiences for Teams.',
-    component: BuilderLayout 
+    component: BuilderLayout,
+    roles: ['user', 'admin']
   },
   { 
     id: 'admin', 
     icon: Settings, 
     label: 'Admin',
     title: 'Admin Command Center',
+    path: '/admin',
     description: 'System orchestration, audit trails, and security settings.',
-    component: AdminDashboard 
+    component: AdminDashboard,
+    roles: ['admin'] // Strictly admin only
   }
 ] as const;
 

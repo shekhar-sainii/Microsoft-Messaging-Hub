@@ -9,6 +9,11 @@ export interface AuditLog {
 }
 
 export const AnalyticsService = {
+  getSummary: async () => {
+    const response = await apiClient.get('/analytics/summary');
+    return response.data;
+  },
+
   getStats: async () => {
     const response = await apiClient.get('/analytics/messages');
     return response.data;

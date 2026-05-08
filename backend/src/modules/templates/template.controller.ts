@@ -1,44 +1,46 @@
 import { Response } from 'express';
 import { templateService } from './template.service';
-import { AuthenticatedRequest } from '../../auth/authMiddleware';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { ResponseMessages } from '../../shared/constants';
+import { AuthenticatedRequest } from '../../shared/types';
 
 export class TemplateController {
-  async save(req: AuthenticatedRequest, res: Response) {
+  async saveTemplate(req: AuthenticatedRequest, res: Response) {
     try {
-      const { name, content, description } = req.body;
-      const result = await templateService.saveTemplate(req.user.microsoftId, name, content, description);
-      res.json(result);
+      const { name, content, description, type } = req.body;
+      const result = await templateService.saveTemplate(req.user?.microsoftId, name, content, description, type);
+      return ApiResponse.success(res, result, ResponseMessages.CREATED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
-  async list(req: AuthenticatedRequest, res: Response) {
+  async listTemplates(req: AuthenticatedRequest, res: Response) {
     try {
-      const templates = await templateService.listTemplates(req.user.microsoftId);
-      res.json(templates);
+      const result = await templateService.listTemplates(req.user?.microsoftId);
+      return ApiResponse.success(res, result, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
-  async update(req: AuthenticatedRequest, res: Response) {
-    try {
-        const id = req.params.id as string;
-        const result = await templateService.updateTemplate(req.user.microsoftId, id, req.body);
-        res.json(result);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-  }
-
-  async delete(req: AuthenticatedRequest, res: Response) {
+  async updateTemplate(req: AuthenticatedRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      const result = await templateService.deleteTemplate(req.user.microsoftId, id);
-      res.json(result);
+      const result = await templateService.updateTemplate(req.user?.microsoftId, id, req.body);
+      return ApiResponse.success(res, result, ResponseMessages.UPDATED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
+    }
+  }
+
+  async deleteTemplate(req: AuthenticatedRequest, res: Response) {
+    try {
+      const id = req.params.id as string;
+      await templateService.deleteTemplate(req.user?.microsoftId, id);
+      return ApiResponse.success(res, null, ResponseMessages.DELETED);
+    } catch (error: any) {
+      return ApiResponse.error(res, error);
     }
   }
 }

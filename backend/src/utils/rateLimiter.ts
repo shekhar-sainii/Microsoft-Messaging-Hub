@@ -1,91 +1,73 @@
 import { redis } from '../config/redis';
+import { logger } from './logger';
 
 /**
- * Redis-based Token Bucket Rate Limiter
- * Implements the token-bucket algorithm for smooth, burst-tolerant throttling.
- * Each key has a bucket of tokens that refills at a fixed rate.
+ * Token-bucket rate limiter implemented with Redis.
+ * Ensures we don't exceed Microsoft Graph API limits (e.g., 3 requests / second).
  */
 export class RateLimiter {
     /**
-     * Checks if a request should be allowed using token-bucket algorithm.
-     * @param key       Unique key for the requester (e.g., userId or IP)
-     * @param capacity  Max tokens in the bucket (burst limit)
-     * @param refillRate Tokens added per second
+     * Attempts to acquire a token for the given key.
+     * @param key Unique identifier (e.g., tenantId or userId)
+     * @param limit Max tokens in bucket
+     * @param interval Interval in seconds to refill the bucket
      */
-    static async isAllowed(key: string, capacity: number, refillRate: number): Promise<boolean> {
-        const now = Date.now();
-        const bucketKey = `tokenbucket:${key}`;
+    static async acquire(key: string, limit: number = 3, interval: number = 1): Promise<boolean> {
+        const fullKey = `ratelimit:${key}`;
+        
+        try {
+            // Using a Lua script for atomic token-bucket check
+            const script = `
+                local current = redis.call('get', KEYS[1])
+                if not current then
+                    redis.call('set', KEYS[1], ARGV[1] - 1, 'EX', ARGV[2])
+                    return 1
+                end
+                if tonumber(current) > 0 then
+                    redis.call('decr', KEYS[1])
+                    return 1
+                else
+                    return 0
+                end
+            `;
 
-        // Lua script for atomic token-bucket check-and-consume
-        const luaScript = `
-            local key = KEYS[1]
-            local capacity = tonumber(ARGV[1])
-            local refill_rate = tonumber(ARGV[2])
-            local now = tonumber(ARGV[3])
-
-            local bucket = redis.call('HMGET', key, 'tokens', 'last_refill')
-            local tokens = tonumber(bucket[1])
-            local last_refill = tonumber(bucket[2])
-
-            -- First request: initialise bucket
-            if tokens == nil then
-                tokens = capacity - 1
-                redis.call('HMSET', key, 'tokens', tokens, 'last_refill', now)
-                redis.call('EXPIRE', key, math.ceil(capacity / refill_rate) + 60)
-                return 1
-            end
-
-            -- Refill tokens based on elapsed time
-            local elapsed = (now - last_refill) / 1000
-            local refilled = math.floor(elapsed * refill_rate)
-            tokens = math.min(capacity, tokens + refilled)
-
-            if refilled > 0 then
-                last_refill = now
-            end
-
-            -- Consume one token if available
-            if tokens >= 1 then
-                tokens = tokens - 1
-                redis.call('HMSET', key, 'tokens', tokens, 'last_refill', last_refill)
-                redis.call('EXPIRE', key, math.ceil(capacity / refill_rate) + 60)
-                return 1
-            end
-
-            return 0
-        `;
-
-        const result = await (redis as any).eval(
-            luaScript,
-            1,
-            bucketKey,
-            capacity.toString(),
-            refillRate.toString(),
-            now.toString()
-        );
-
-        return result === 1;
+            const result = await (redis as any).eval(script, 1, fullKey, limit, interval);
+            return result === 1;
+        } catch (err) {
+            logger.error('RateLimiter error', err);
+            return true; // Fail open to avoid blocking valid traffic if Redis is down
+        }
     }
 
     /**
-     * Legacy fixed-window check — kept for backward compatibility.
-     * Prefer isAllowed() for new code.
+     * Middleware-style wrapper for Graph API calls.
+     * Retries if throttled or returns a standard 429-aware response.
      */
-    static async isAllowedFixedWindow(key: string, limit: number, windowInSeconds: number): Promise<boolean> {
-        const fullKey = `ratelimit:${key}`;
-        const current = await redis.get(fullKey);
+    static async throttle(key: string, fn: () => Promise<any>): Promise<any> {
+        let attempts = 0;
+        const maxAttempts = 3;
 
-        if (current && parseInt(current) >= limit) {
-            return false;
+        while (attempts < maxAttempts) {
+            const hasToken = await this.acquire(key);
+            if (hasToken) {
+                try {
+                    return await fn();
+                } catch (error: any) {
+                    if (error.status === 429 || error.statusCode === 429) {
+                        const retryAfter = parseInt(error.response?.headers?.['retry-after'] || '1', 10);
+                        logger.warn(`Graph API throttled. Retrying in ${retryAfter}s...`);
+                        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                        attempts++;
+                        continue;
+                    }
+                    throw error;
+                }
+            } else {
+                // Wait 500ms before trying to acquire token again
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
         }
-
-        const multi = redis.multi();
-        multi.incr(fullKey);
-        if (!current) {
-            multi.expire(fullKey, windowInSeconds);
-        }
-        await multi.exec();
-
-        return true;
+        throw new Error('Rate limit exceeded after multiple retries');
     }
 }

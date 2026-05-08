@@ -1,36 +1,45 @@
-/**
- * Microsoft Graph Batching Utility
- * Allows combining multiple Graph API requests into a single HTTP call.
- * Reduces network overhead and helps stay within API rate limits.
- */
+import { Client } from '@microsoft/microsoft-graph-client';
+
 export interface BatchRequest {
     id: string;
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+    method: string;
     url: string;
     body?: any;
     headers?: Record<string, string>;
 }
 
-export class GraphBatchBuilder {
-    private requests: BatchRequest[] = [];
+export interface BatchResponse {
+    id: string;
+    status: number;
+    body: any;
+    headers?: Record<string, string>;
+}
 
-    add(request: Omit<BatchRequest, 'id'>): string {
-        const id = Math.random().toString(36).substring(7);
-        this.requests.push({ ...request, id });
-        return id;
+/**
+ * Helper to execute multiple Graph requests in a single HTTP call.
+ * Microsoft Graph limits batches to 20 requests.
+ */
+export class GraphBatch {
+    static async execute(client: Client, requests: BatchRequest[]): Promise<BatchResponse[]> {
+        if (requests.length === 0) return [];
+        if (requests.length > 20) {
+            throw new Error('Graph $batch exceeds maximum of 20 requests');
+        }
+
+        const payload = { requests };
+        const response = await client.api('/$batch').post(payload);
+        
+        return response.responses;
     }
 
-    build() {
-        return {
-            requests: this.requests
-        };
-    }
-
-    clear() {
-        this.requests = [];
-    }
-
-    get count() {
-        return this.requests.length;
+    /**
+     * Helper to map batch responses back to a predictable object.
+     */
+    static mapResponses<T = any>(responses: BatchResponse[]): Record<string, T> {
+        const map: Record<string, T> = {};
+        for (const res of responses) {
+            map[res.id] = res.body;
+        }
+        return map;
     }
 }

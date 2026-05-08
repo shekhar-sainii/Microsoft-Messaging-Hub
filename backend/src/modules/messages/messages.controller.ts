@@ -1,113 +1,151 @@
 import { Response } from 'express';
 import { messagesService } from './messages.service';
-import { AuthenticatedRequest } from '../../shared/middleware/graph.middleware';
+import { AuthenticatedRequest } from '../../shared/types';
 import { AdaptiveCardUtils } from '../../utils/adaptiveCards';
+import { logger } from '../../utils/logger';
+import { ApiResponse } from '../../shared/ApiResponse';
+import { HttpStatus, ResponseMessages } from '../../shared/constants';
 
 export class MessagesController {
   async sendMessage(req: AuthenticatedRequest, res: Response) {
+    const userId = req.user?.microsoftId;
+    if (!userId) return ApiResponse.error(res, 'User identity not found', HttpStatus.UNAUTHORIZED);
+
     try {
       const { teamId, channelId, content, mentions, isAdaptiveCard, cardJson, subject, importance } = req.body;
-      const userId = req.user.microsoftId;
-
       const options = { subject, importance, mentions };
 
       if (isAdaptiveCard) {
-        // Validate card schema and version on the backend
         const validation = AdaptiveCardUtils.validateSchema(cardJson);
         if (!validation.valid) {
-          return res.status(400).json({ error: `Invalid Adaptive Card: ${validation.error}` });
+          return ApiResponse.error(res, `${ResponseMessages.INVALID_CARD}: ${validation.error}`, HttpStatus.BAD_REQUEST);
         }
         const result = await messagesService.sendAdaptiveCard(req.graphClient!, teamId, channelId, cardJson, userId, options);
-        return res.json(result);
+        return ApiResponse.success(res, result, ResponseMessages.MESSAGE_SENT);
       }
 
       const result = await messagesService.sendMessage(req.graphClient!, teamId, channelId, content, userId, options);
-      res.json(result);
+      return ApiResponse.success(res, result, ResponseMessages.MESSAGE_SENT);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      logger.error('Failed to send message', { error: error.message, userId });
+      return ApiResponse.error(res, error);
     }
   }
 
   async retryMessage(req: AuthenticatedRequest, res: Response) {
     try {
-      const messageId = req.params.messageId as string;
-      const sentMsg: any = await messagesService.getSentMessageById(messageId);
-      if (!sentMsg) return res.status(404).json({ error: 'Message not found' });
+      const targetId = req.params.messageId as string;
+      let targetData: any;
 
-      // Only owner can retry
-      if (sentMsg.userId !== req.user.microsoftId) return res.status(403).json({ error: 'Unauthorized' });
+      const sentMsg = await messagesService.getSentMessageById(targetId);
+      if (sentMsg) {
+        targetData = {
+          teamId: sentMsg.teamId,
+          channelId: sentMsg.channelId,
+          content: sentMsg.content,
+          userId: sentMsg.userId,
+          options: sentMsg.metadata,
+          isCard: sentMsg.metadata?.type === 'adaptive_card',
+          cardJson: sentMsg.metadata?.cardJson
+        };
+      } else {
+        const { AuditLogModel } = await import('../../models/AuditLog');
+        const auditLog = await AuditLogModel.findById(targetId);
+        if (!auditLog || !auditLog.metadata) {
+            return ApiResponse.error(res, ResponseMessages.NOT_FOUND, HttpStatus.NOT_FOUND);
+        }
 
-      const result = await messagesService.sendMessage(
-        req.graphClient!,
-        sentMsg.teamId,
-        sentMsg.channelId,
-        sentMsg.content,
-        sentMsg.userId,
-        sentMsg.metadata // Re-use subject, importance etc
-      );
-      res.json(result);
+        targetData = {
+          teamId: auditLog.metadata.teamId,
+          channelId: auditLog.metadata.channelId,
+          content: auditLog.metadata.content || '',
+          userId: auditLog.userId,
+          options: auditLog.metadata.options,
+          isCard: auditLog.metadata.isCard,
+          cardJson: auditLog.metadata.cardJson
+        };
+      }
+
+      if (targetData.userId !== req.user?.microsoftId) {
+          return ApiResponse.error(res, ResponseMessages.FORBIDDEN, HttpStatus.FORBIDDEN);
+      }
+
+      let result;
+      if (targetData.isCard) {
+        result = await messagesService.sendAdaptiveCard(
+          req.graphClient!,
+          targetData.teamId,
+          targetData.channelId,
+          targetData.cardJson,
+          targetData.userId,
+          targetData.options
+        );
+      } else {
+        result = await messagesService.sendMessage(
+          req.graphClient!,
+          targetData.teamId,
+          targetData.channelId,
+          targetData.content,
+          targetData.userId,
+          targetData.options
+        );
+      }
+      
+      return ApiResponse.success(res, result, ResponseMessages.RETRY_SUCCESS);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async reply(req: AuthenticatedRequest, res: Response) {
     try {
-      const teamId = req.body.teamId as string;
-      const channelId = req.body.channelId as string;
-      const messageId = req.body.messageId as string;
-      const content = req.body.content as string;
-      const userId = req.user.microsoftId;
-      
-      const result = await messagesService.replyToMessage(req.graphClient!, teamId, channelId, messageId, content, userId);
-      res.json(result);
+      const { teamId, channelId, messageId, content } = req.body;
+      const result = await messagesService.replyToMessage(req.graphClient!, teamId, channelId, messageId, content, req.user?.microsoftId);
+      return ApiResponse.success(res, result, ResponseMessages.MESSAGE_SENT);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async deleteMessage(req: AuthenticatedRequest, res: Response) {
     try {
       const graphMsgId = req.params.graphMsgId as string;
-      const teamId = req.query.teamId as string;
-      const channelId = req.query.channelId as string;
-      const userId = req.user.microsoftId;
-      await messagesService.deleteMessage(req.graphClient!, teamId, channelId, graphMsgId, userId);
-      res.json({ success: true });
+      const { teamId, channelId } = req.query as any;
+      await messagesService.deleteMessage(req.graphClient!, teamId, channelId, graphMsgId, req.user?.microsoftId);
+      return ApiResponse.success(res, null, ResponseMessages.DELETED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async getSentHistory(req: AuthenticatedRequest, res: Response) {
     try {
       const { limit, skip } = req.query;
-      const history = await messagesService.getSentHistory(req.user.microsoftId, Number(limit), Number(skip));
-      res.json(history);
+      const history = await messagesService.getSentHistory(req.user?.microsoftId, Number(limit), Number(skip));
+      return ApiResponse.success(res, history, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async searchMessages(req: AuthenticatedRequest, res: Response) {
     try {
       const { q } = req.query;
-      const results = await messagesService.searchHistory(req.user.microsoftId, q as string);
-      res.json(results);
+      const results = await messagesService.searchHistory(req.user?.microsoftId, q as string);
+      return ApiResponse.success(res, results, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 
   async getReplies(req: AuthenticatedRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      const teamId = req.query.teamId as string;
-      const channelId = req.query.channelId as string;
+      const { teamId, channelId } = req.query as any;
       const replies = await messagesService.getReplies(req.graphClient!, teamId, channelId, id);
-      res.json(replies);
+      return ApiResponse.success(res, replies, ResponseMessages.FETCHED);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      return ApiResponse.error(res, error);
     }
   }
 }

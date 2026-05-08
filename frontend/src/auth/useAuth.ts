@@ -46,10 +46,24 @@ export const useAuth = () => {
                 { withCredentials: true }
             );
 
-            setUser(backendResponse.data.user);
+            // Correct path: ApiResponse.data contains the user object directly
+            setUser(backendResponse.data.data);
             setIsAuthenticated(true);
             syncedAccountId.current = accountId;
         } catch (error: any) {
+            // If msal sync fails, try to get current session anyway
+            try {
+                const meResponse = await axios.get(`${API_BASE_URL}/auth/me`, { withCredentials: true });
+                if (meResponse.data.success) {
+                    setUser(meResponse.data.data);
+                    setIsAuthenticated(true);
+                    syncedAccountId.current = accountId;
+                    return;
+                }
+            } catch (meError) {
+                // Ignore meError
+            }
+
             if (
                 error?.errorCode === 'interaction_required' ||
                 error?.errorCode === 'login_required' ||

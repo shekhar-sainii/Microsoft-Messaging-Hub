@@ -14,8 +14,10 @@ export const AdminConsentBanner: React.FC = () => {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const consent = params.get('consent');
-        if (consent === 'granted') setStatus('granted');
-        if (consent === 'denied') setStatus('denied');
+        const success = params.get('admin_consent_success');
+
+        if (consent === 'granted' || success === 'true') setStatus('granted');
+        if (consent === 'denied' || success === 'false') setStatus('denied');
 
         // Clean URL
         if (consent) {

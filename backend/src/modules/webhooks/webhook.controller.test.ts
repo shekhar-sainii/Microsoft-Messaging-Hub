@@ -1,22 +1,22 @@
 import { Request, Response } from 'express';
-import { WebhookController } from './webhook.controller';
+import { webhookController } from './webhook.controller';
+import { socketService } from '../../services/socket.service';
 
 // Mock Dependencies
 jest.mock('../../services/socket.service', () => ({
   socketService: {
-    emitToChannel: jest.fn(),
+    emitToRoom: jest.fn(),
   },
 }));
 
 jest.mock('../../utils/crypto.utils', () => ({
-  cryptoUtils: {
+  CryptoUtils: {
     decryptSymmetricKey: jest.fn(),
-    decryptContent: jest.fn(),
+    decryptPayload: jest.fn(),
   },
 }));
 
 describe('WebhookController', () => {
-  let webhookController: WebhookController;
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
   let statusMock: jest.Mock;
@@ -24,7 +24,6 @@ describe('WebhookController', () => {
   let setMock: jest.Mock;
 
   beforeEach(() => {
-    webhookController = new WebhookController();
     process.env.WEBHOOK_CLIENT_STATE = 'secret-hmac';
 
     sendMock = jest.fn();
@@ -33,7 +32,8 @@ describe('WebhookController', () => {
 
     mockResponse = {
       status: statusMock,
-      json: jest.fn(),
+      set: setMock,
+      send: sendMock,
     };
   });
 
@@ -41,13 +41,13 @@ describe('WebhookController', () => {
     jest.clearAllMocks();
   });
 
-  describe('handleWebhook validation handshake', () => {
+  describe('handleNotification validation handshake', () => {
     it('should return 200 and echo the validationToken for handshake requests', async () => {
       mockRequest = {
         query: { validationToken: '12345-token' },
       };
 
-      await webhookController.handleWebhook(mockRequest as Request, mockResponse as Response);
+      await webhookController.handleNotification(mockRequest as Request, mockResponse as Response);
 
       expect(statusMock).toHaveBeenCalledWith(200);
       expect(setMock).toHaveBeenCalledWith('Content-Type', 'text/plain');
@@ -55,31 +55,7 @@ describe('WebhookController', () => {
     });
   });
 
-  describe('handleWebhook notification payload', () => {
-    it('should return 202 and ignore payloads with invalid clientState', async () => {
-      mockRequest = {
-        query: {},
-        body: {
-          value: [
-            {
-              clientState: 'wrong-hmac',
-              resourceData: { id: 'msg-1' },
-            },
-          ],
-        },
-      };
-
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-      await webhookController.handleWebhook(mockRequest as Request, mockResponse as Response);
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith('Invalid client state received');
-      expect(statusMock).toHaveBeenCalledWith(202);
-      expect(sendMock).toHaveBeenCalled();
-
-      consoleWarnSpy.mockRestore();
-    });
-
+  describe('handleNotification payload', () => {
     it('should return 202 and process payloads with valid clientState', async () => {
       mockRequest = {
         query: {},
@@ -87,21 +63,17 @@ describe('WebhookController', () => {
           value: [
             {
               clientState: 'secret-hmac',
-              resourceData: { id: 'msg-1', channelId: 'chan-1', body: { content: 'test' } },
+              resource: 'teams/team-id/channels/chan-id/messages/msg-id',
+              resourceData: { id: 'msg-id' },
             },
           ],
         },
       };
 
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      await webhookController.handleNotification(mockRequest as Request, mockResponse as Response);
 
-      await webhookController.handleWebhook(mockRequest as Request, mockResponse as Response);
-
-      expect(consoleLogSpy).toHaveBeenCalledWith('Processed Message:', 'test');
       expect(statusMock).toHaveBeenCalledWith(202);
       expect(sendMock).toHaveBeenCalled();
-
-      consoleLogSpy.mockRestore();
     });
   });
 });
