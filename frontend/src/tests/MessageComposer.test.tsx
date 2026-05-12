@@ -31,9 +31,9 @@ describe('MessageComposer', () => {
 
     it('renders the composer with subject and importance fields', () => {
         render(<MessageComposer onSend={mockOnSend} />);
-        expect(screen.getByPlaceholderText('Subject (optional)')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/Message Subject/i)).toBeInTheDocument();
         expect(screen.getByText('Normal')).toBeInTheDocument();
-        expect(screen.getByText('Send Now')).toBeInTheDocument();
+        expect(screen.getByText(/Send Dispatch/i)).toBeInTheDocument();
     });
 
     it('shows importance options', () => {
@@ -46,15 +46,14 @@ describe('MessageComposer', () => {
 
     it('disables Send Now button when editor is empty', () => {
         render(<MessageComposer onSend={mockOnSend} />);
-        const sendBtn = screen.getByText('Send Now');
+        const sendBtn = screen.getByText(/Send Dispatch/i);
         expect(sendBtn).toBeDisabled();
     });
 
     it('shows schedule button when onSchedule prop is provided', () => {
         render(<MessageComposer onSend={mockOnSend} onSchedule={mockOnSchedule} />);
-        // Clock icon button should be present
-        const buttons = screen.getAllByRole('button');
-        expect(buttons.length).toBeGreaterThan(1);
+        // Use a more specific query if needed, but clock button has text "Schedule"
+        expect(screen.getByText(/Schedule/i)).toBeInTheDocument();
     });
 
     it('renders OneDrive picker', () => {
@@ -64,7 +63,7 @@ describe('MessageComposer', () => {
 
     it('updates subject field on input', () => {
         render(<MessageComposer onSend={mockOnSend} />);
-        const subjectInput = screen.getByPlaceholderText('Subject (optional)') as HTMLInputElement;
+        const subjectInput = screen.getByPlaceholderText(/Message Subject/i) as HTMLInputElement;
         fireEvent.change(subjectInput, { target: { value: 'Test Subject' } });
         expect(subjectInput.value).toBe('Test Subject');
     });

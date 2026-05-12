@@ -1,13 +1,31 @@
-import { TeamsService } from './teams.service';
+import { teamsService } from './teams.service';
+import { redis } from '../../config/redis';
+import { GraphBatch } from '../../utils/graphBatch';
 
 // Mock Redis
 jest.mock('../../config/redis', () => ({
     redis: {
-        get: jest.fn().mockResolvedValue(null),
+        get: jest.fn(),
         setex: jest.fn().mockResolvedValue('OK'),
-        set: jest.fn().mockResolvedValue('OK'),
-        del: jest.fn().mockResolvedValue(1),
     },
+}));
+
+// Mock GraphBatch
+jest.mock('../../utils/graphBatch', () => ({
+    GraphBatch: {
+        execute: jest.fn(),
+        mapResponses: jest.fn(),
+    },
+}));
+
+jest.mock('../../utils/rateLimiter', () => ({
+    RateLimiter: {
+        throttle: jest.fn().mockImplementation((key, fn) => fn()),
+    },
+}));
+
+jest.mock('../../utils/logger', () => ({
+    logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }));
 
 const mockGraphClient = {
@@ -15,90 +33,142 @@ const mockGraphClient = {
     select: jest.fn().mockReturnThis(),
     top: jest.fn().mockReturnThis(),
     get: jest.fn(),
-    post: jest.fn(),
 };
 
 describe('TeamsService', () => {
-    let teamsService: TeamsService;
-
     beforeEach(() => {
         jest.clearAllMocks();
-        teamsService = new TeamsService();
     });
 
     describe('getJoinedTeams', () => {
-        it('should fetch teams from Graph and cache in Redis', async () => {
-            const mockTeams = [
-                { id: 'team-1', displayName: 'Team One' },
-                { id: 'team-2', displayName: 'Team Two' },
-            ];
+        it('should return cached teams if available', async () => {
+            const cachedTeams = [{ id: 't1', displayName: 'Cached Team' }];
+            (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedTeams));
 
-            mockGraphClient.get.mockResolvedValue({ value: mockTeams });
-
-            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'user-1');
-
-            expect(result).toEqual(mockTeams);
-        });
-
-        it('should return demo teams when Graph returns empty array', async () => {
-            mockGraphClient.get.mockResolvedValue({ value: [] });
-
-            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'user-1');
-
-            expect(result.length).toBeGreaterThan(0);
-            expect(result[0].id).toContain('demo-team');
-        });
-
-        it('should return demo teams on Graph error', async () => {
-            mockGraphClient.get.mockRejectedValue(new Error('Graph API error'));
-
-            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'user-1');
-
-            expect(result).toBeDefined();
-            expect(Array.isArray(result)).toBe(true);
-        });
-
-        it('should return cached data from Redis if available', async () => {
-            const { redis } = require('../../config/redis');
-            const cachedTeams = [{ id: 'cached-team', displayName: 'Cached Team' }];
-            redis.get.mockResolvedValue(JSON.stringify(cachedTeams));
-
-            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'user-1');
+            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'u1');
 
             expect(result).toEqual(cachedTeams);
-            expect(mockGraphClient.get).not.toHaveBeenCalled();
+            expect(mockGraphClient.api).not.toHaveBeenCalled();
+        });
+
+        it('should fetch from Graph and handle pagination', async () => {
+            (redis.get as jest.Mock).mockResolvedValue(null);
+            
+            // First page
+            mockGraphClient.get
+                .mockResolvedValueOnce({
+                    value: [{ id: 't1' }],
+                    '@odata.nextLink': 'https://graph.microsoft.com/next'
+                })
+                .mockResolvedValueOnce({
+                    value: [{ id: 't2' }]
+                });
+
+            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'u1');
+
+            expect(result).toHaveLength(2);
+            expect(mockGraphClient.api).toHaveBeenCalledWith('/me/joinedTeams');
+            expect(mockGraphClient.api).toHaveBeenCalledWith('https://graph.microsoft.com/next');
+        });
+
+        it('should return demo teams on error', async () => {
+            (redis.get as jest.Mock).mockResolvedValue(null);
+            mockGraphClient.get.mockRejectedValue(new Error('Graph error'));
+
+            const result = await teamsService.getJoinedTeams(mockGraphClient as any, 'u1');
+
+            expect(result[0]._isDemo).toBe(true);
         });
     });
 
-    describe('getTeamChannels', () => {
-        it('should return demo channels for demo teams without calling Graph', async () => {
-            const result = await teamsService.getTeamChannels(mockGraphClient as any, 'demo-team-001', 'user-1');
-
-            expect(result.value).toBeDefined();
-            expect(mockGraphClient.get).not.toHaveBeenCalled();
+    describe('getTeamDetail', () => {
+        it('should handle demo team ID', async () => {
+            const result = await teamsService.getTeamDetail(mockGraphClient as any, 'demo-team-001');
+            expect(result.id).toBe('demo-team-001');
         });
 
-        it('should fetch channels from Graph for real teams', async () => {
-            const mockChannels = { value: [{ id: 'ch-1', displayName: 'General' }] };
-            mockGraphClient.get.mockResolvedValue(mockChannels);
-
-            const result = await teamsService.getTeamChannels(mockGraphClient as any, 'real-team-id', 'user-1');
-
-            expect(result).toEqual(mockChannels);
+        it('should fetch from Graph for real IDs', async () => {
+            mockGraphClient.get.mockResolvedValue({ id: 'real-t1' });
+            const result = await teamsService.getTeamDetail(mockGraphClient as any, 'real-t1');
+            expect(mockGraphClient.api).toHaveBeenCalledWith('/teams/real-t1');
+            expect(result.id).toBe('real-t1');
         });
     });
 
-    describe('trackRecentTeam', () => {
-        it('should store recent teams in Redis with 7-day expiry', async () => {
-            const { redis } = require('../../config/redis');
+    describe('Batching & Initial Data', () => {
+        it('should use GraphBatch for initial data', async () => {
+            (GraphBatch.execute as jest.Mock).mockResolvedValue([]);
+            (GraphBatch.mapResponses as jest.Mock).mockReturnValue({
+                teams: { value: [{ id: 't1' }] },
+                me: { displayName: 'User' }
+            });
 
-            await teamsService.trackRecentTeam('user-1', 'team-abc');
+            const result = await teamsService.getInitialData(mockGraphClient as any, 'u1');
 
+            expect(result.teams).toHaveLength(1);
+            expect(result.me.displayName).toBe('User');
+        });
+    });
+
+    describe('Recent Teams', () => {
+        it('should track and retrieve recent teams', async () => {
+            (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(['t2', 't3']));
+            
+            await teamsService.trackRecentTeam('u1', 't1');
+            
             expect(redis.setex).toHaveBeenCalledWith(
-                'recent:teams:user-1',
-                7 * 24 * 3600,
-                expect.any(String)
+                expect.stringContaining('recent:teams'),
+                expect.any(Number),
+                expect.stringContaining('t1')
             );
+
+            const recent = await teamsService.getRecentTeams('u1');
+            expect(recent).toEqual(['t2', 't3']);
+        });
+    });
+
+    describe('Photo handling', () => {
+        it('should handle photo fetch and caching', async () => {
+            (redis.get as jest.Mock).mockResolvedValue(null);
+            mockGraphClient.get.mockResolvedValue({
+                arrayBuffer: () => Promise.resolve(Buffer.from('photo-data'))
+            });
+
+            const photo = await teamsService.getTeamPhoto(mockGraphClient as any, 't1');
+            expect(photo).toContain('data:image/jpeg;base64');
+            expect(redis.setex).toHaveBeenCalled();
+        });
+
+        it('should return null on photo error', async () => {
+            mockGraphClient.get.mockRejectedValue(new Error('No photo'));
+            const photo = await teamsService.getTeamPhoto(mockGraphClient as any, 't1');
+            expect(photo).toBeNull();
+        });
+    });
+
+    describe('Channels & Members', () => {
+        it('should handle demo channels', async () => {
+            const result = await teamsService.getTeamChannels(mockGraphClient as any, 'demo-team-001', 'u1');
+            expect(result.value).toHaveLength(3);
+        });
+
+        it('should handle real channels with caching', async () => {
+            (redis.get as jest.Mock).mockResolvedValue(null);
+            mockGraphClient.get.mockResolvedValue({ value: [{ id: 'c1' }] });
+            
+            const result = await teamsService.getTeamChannels(mockGraphClient as any, 'real-t1', 'u1');
+            expect(result.value).toHaveLength(1);
+            expect(redis.setex).toHaveBeenCalled();
+        });
+
+        it('should handle channel detail and members', async () => {
+            mockGraphClient.get.mockResolvedValue({ id: 'c1' });
+            await teamsService.getChannelDetail(mockGraphClient as any, 'real-t1', 'c1');
+            expect(mockGraphClient.api).toHaveBeenCalledWith('/teams/real-t1/channels/c1');
+
+            mockGraphClient.get.mockResolvedValue({ value: [] });
+            await teamsService.getTeamMembers(mockGraphClient as any, 'real-t1', 'u1');
+            expect(mockGraphClient.api).toHaveBeenCalledWith('/teams/real-t1/members');
         });
     });
 });

@@ -8,18 +8,16 @@ test.describe('Messaging Hub Core Flow', () => {
   
   test('should redirect to login when unauthenticated', async ({ page }) => {
     await page.goto('/');
-    // Check for login button presence
-    const loginBtn = page.getByRole('button', { name: /sign in with microsoft/i });
+    // Check for login button presence (Polished UI uses "Login")
+    const loginBtn = page.getByRole('button', { name: /login/i });
     await expect(loginBtn).toBeVisible();
   });
 
   test('should display dashboard after successful mock login', async ({ page }) => {
-    // Note: In a real CI environment, we would use a mock token or 
-    // a pre-authenticated storage state to bypass the interactive MS login.
     await page.goto('/');
     
-    // Simulate login button click
-    await page.getByRole('button', { name: /sign in/i }).first().click();
+    // Click the main CTA
+    await page.getByRole('button', { name: /get started free/i }).click();
     
     // Check for dashboard components
     await expect(page.getByText(/Microsoft Teams/i)).toBeVisible();

@@ -45,21 +45,22 @@ export const MessagesService = {
 
   getSentHistory: async (limit: number = 50, skip: number = 0) => {
     const response = await apiClient.get(`/messages/sent?limit=${limit}&skip=${skip}`);
-    return response.data;
+    return response.data.data || [];
   },
 
   search: async (query: string) => {
     const response = await apiClient.get(`/messages/search?q=${encodeURIComponent(query)}`);
-    return response.data;
+    return response.data.data || [];
   },
 
   getReplies: async (teamId: string, channelId: string, messageId: string) => {
     const response = await apiClient.get(`/messages/${messageId}/replies?teamId=${teamId}&channelId=${channelId}`);
-    return response.data.value || response.data;
+    const data = response.data.data;
+    return data?.value || data || [];
   },
 
   delete: async (teamId: string, channelId: string, graphMsgId: string) => {
     const response = await apiClient.delete(`/messages/${graphMsgId}?teamId=${teamId}&channelId=${channelId}`);
-    return response.data;
+    return response.data.data;
   }
 };

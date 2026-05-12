@@ -7,15 +7,22 @@ import { AuthenticatedRequest } from '../../shared/types';
 export class SchedulerController {
   async scheduleMessage(req: AuthenticatedRequest, res: Response) {
     try {
-      const { teamId, channelId, content, scheduledAt, recurrence, until } = req.body;
+      const { teamId, channelId, content, scheduledAt, scheduledFor, recurrence, until, recurrenceEndDate } = req.body;
+      const targetDateStr = scheduledAt || scheduledFor;
+      const untilDateStr = until || recurrenceEndDate;
+
+      if (!targetDateStr) {
+        return ApiResponse.error(res, new Error('Target date (scheduledFor) is required'));
+      }
+
       const result = await queueService.scheduleMessage(
         req.user?.microsoftId,
         teamId,
         channelId,
         content,
-        new Date(scheduledAt),
+        new Date(targetDateStr),
         recurrence,
-        until ? new Date(until) : undefined
+        untilDateStr ? new Date(untilDateStr) : undefined
       );
       return ApiResponse.success(res, result, ResponseMessages.CREATED);
     } catch (error: any) {

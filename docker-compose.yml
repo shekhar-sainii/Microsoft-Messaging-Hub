@@ -53,6 +53,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_AZURE_CLIENT_ID=${VITE_AZURE_CLIENT_ID}
+        - VITE_AZURE_TENANT_ID=${VITE_AZURE_TENANT_ID}
     container_name: messaging-hub-ui
     restart: unless-stopped
     ports:

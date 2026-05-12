@@ -52,7 +52,8 @@ export class AuthService {
       { 
         id: user._id, 
         microsoftId: user.microsoftId,
-        tenantId: user.tenantId 
+        tenantId: user.tenantId,
+        role: user.role 
       },
       config.jwt.secret as string,
       signOptions
@@ -77,6 +78,11 @@ export class AuthService {
     const state = 'admin_consent_state';
     
     return `https://login.microsoftonline.com/${tenantId}/adminconsent?client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+  }
+
+  async getGraphToken(microsoftId: string) {
+    const user = await userRepository.findByMicrosoftId(microsoftId);
+    return user?.accessToken || null;
   }
 }
 

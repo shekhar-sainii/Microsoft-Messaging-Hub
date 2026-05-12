@@ -7,11 +7,16 @@ import { ClientCredentialsService } from '../../auth/clientCredentials';
 import { createGraphClient } from '../../config/graphClient';
 
 export class WebhookService {
-  async createSubscription(client: Client, tenantId: string) {
+  async createSubscription(_userClient: Client, tenantId: string) {
     const expirationDateTime = new Date();
     expirationDateTime.setHours(expirationDateTime.getHours() + 1);
 
     const publicKey = CryptoUtils.getPublicKeyBase64();
+
+    // MUST use App-only token for tenant-wide channel messages
+    const appToken = await ClientCredentialsService.getAppToken();
+    if (!appToken) throw new Error('Could not obtain application token for subscription');
+    const appClient = createGraphClient(appToken);
 
     const subscriptionPayload = {
       changeType: 'created,updated',
@@ -24,7 +29,7 @@ export class WebhookService {
       encryptionCertificateId: 'hub-cert-001',
     };
 
-    const response = await client.api('/subscriptions').post(subscriptionPayload);
+    const response = await appClient.api('/subscriptions').post(subscriptionPayload);
     
     return webhookRepository.create({
       subscriptionId: response.id,

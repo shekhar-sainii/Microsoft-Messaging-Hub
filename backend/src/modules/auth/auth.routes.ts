@@ -10,5 +10,6 @@ router.post('/logout', authController.logout);
 router.get('/me', authMiddleware, authController.getMe);
 router.get('/admin-consent', authController.adminConsent);
 router.get('/admin-consent/callback', authController.handleAdminConsentCallback);
+router.get('/graph-token', authMiddleware, authController.getGraphToken);
 
 export default router;

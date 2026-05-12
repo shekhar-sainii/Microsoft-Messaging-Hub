@@ -23,6 +23,6 @@ export const baseApi = createApi({
             return headers;
         },
     }),
-    tagTypes: ['Teams', 'Channels', 'Messages', 'Templates', 'Scheduler', 'Webhooks', 'Analytics', 'Audit'],
+    tagTypes: ['Teams', 'Channels', 'Messages', 'Templates', 'Scheduler', 'Webhooks', 'Analytics', 'Audit', 'Users'],
     endpoints: () => ({}),
 });

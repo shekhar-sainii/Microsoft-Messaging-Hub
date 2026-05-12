@@ -30,3 +30,20 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
     return ApiResponse.error(res, 'Session expired or invalid token', HttpStatus.UNAUTHORIZED);
   }
 };
+
+/**
+ * Role-Based Authorization Middleware
+ */
+export const authorize = (roles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return ApiResponse.error(res, 'Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return ApiResponse.error(res, 'Forbidden: Insufficient permissions', HttpStatus.FORBIDDEN);
+    }
+
+    next();
+  };
+};

@@ -1,8 +1,10 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Calendar, CheckCircle2, XCircle, Trash2, Send, Activity, Timer, Layers } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Calendar, CheckCircle2, XCircle, Trash2, Send, Activity, Timer, Layers, Plus, X } from 'lucide-react';
 import { useGetScheduledMessagesQuery, useCancelScheduleMutation } from '../schedulerApi';
 import toast from 'react-hot-toast';
+import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
+import { ScheduleMessageForm } from './ScheduleMessageForm';
 
 const RECURRENCE_LABELS: Record<string, string> = {
     none: 'One-time',
@@ -14,26 +16,45 @@ const RECURRENCE_LABELS: Record<string, string> = {
 export const SchedulerDashboard: React.FC = () => {
     const { data: schedules, isLoading } = useGetScheduledMessagesQuery();
     const [cancelSchedule] = useCancelScheduleMutation();
+    const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [confirmModal, setConfirmModal] = React.useState<{
+        isOpen: boolean;
+        schedule: any;
+        cancelSeries: boolean;
+    }>({
+        isOpen: false,
+        schedule: null,
+        cancelSeries: false
+    });
 
-    const handleCancel = (schedule: any) => {
+    const handleCancelClick = (schedule: any) => {
         const isSeries = schedule.recurrence && schedule.recurrence !== 'none';
-
+        
         if (isSeries) {
-            const choice = window.confirm(
-                'This is a recurring series.\n\nOK = Cancel ENTIRE series\nCancel = Cancel ONLY this occurrence'
-            );
-            cancelSchedule({ id: schedule._id, cancelSeries: choice })
-                .unwrap()
-                .then(() => toast.success(choice ? 'Series terminated' : 'Occurrence cancelled'))
-                .catch(() => toast.error('Termination failed'));
+            // For series, we still use a custom logic or two step modal, 
+            // but for now let's use the nice modal for single and default series to false
+            setConfirmModal({
+                isOpen: true,
+                schedule,
+                cancelSeries: true // Default to series for recurring
+            });
         } else {
-            if (window.confirm('Are you sure you want to cancel this scheduled delivery?')) {
-                cancelSchedule({ id: schedule._id, cancelSeries: false })
-                    .unwrap()
-                    .then(() => toast.success('Delivery cancelled'))
-                    .catch(() => toast.error('Failed to cancel'));
-            }
+            setConfirmModal({
+                isOpen: true,
+                schedule,
+                cancelSeries: false
+            });
         }
+    };
+
+    const executeCancel = () => {
+        const { schedule, cancelSeries } = confirmModal;
+        if (!schedule) return;
+
+        cancelSchedule({ id: schedule._id, cancelSeries })
+            .unwrap()
+            .then(() => toast.success(cancelSeries ? 'Series terminated' : 'Delivery cancelled'))
+            .catch(() => toast.error('Action failed'));
     };
 
     const stats = [
@@ -55,6 +76,14 @@ export const SchedulerDashboard: React.FC = () => {
                     <p className="text-slate-400 font-bold text-sm max-w-xl">
                         Orchestrate future communications with precision.
                     </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsFormOpen(true)}
+                        className="px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl text-xs font-black tracking-wider uppercase hover:from-amber-600 hover:to-amber-700 active:scale-95 shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 border border-amber-400/30"
+                    >
+                        <Plus size={16} /> Schedule Mission
+                    </button>
                 </div>
             </div>
 
@@ -159,7 +188,7 @@ export const SchedulerDashboard: React.FC = () => {
                                     {schedule.status === 'pending' && (
                                         <div className="lg:border-l lg:border-slate-50 lg:pl-6">
                                             <button
-                                                onClick={() => handleCancel(schedule)}
+                                                onClick={() => handleCancelClick(schedule)}
                                                 className="px-6 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-xl text-[10px] font-black transition-all flex items-center gap-2 border border-red-50"
                                             >
                                                 <Trash2 size={16} />
@@ -173,6 +202,44 @@ export const SchedulerDashboard: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <ConfirmationModal 
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={executeCancel}
+                title="Confirm Termination"
+                message={confirmModal.cancelSeries 
+                    ? "Are you sure you want to cancel this entire recurring series? All future deliveries will be stopped."
+                    : "Are you sure you want to cancel this scheduled delivery?"}
+                confirmText="Yes, Terminate"
+                cancelText="Keep Delivery"
+                type="danger"
+            />
+
+            {/* Modal Overlay for Scheduling */}
+            <AnimatePresence>
+                {isFormOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.5, bounce: 0.1 }}
+                            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden relative border border-slate-100 max-h-[90vh] flex flex-col"
+                        >
+                            <button
+                                onClick={() => setIsFormOpen(false)}
+                                className="absolute top-5 right-5 z-20 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            >
+                                <X size={16} />
+                            </button>
+                            <div className="overflow-y-auto custom-scrollbar p-1">
+                                <ScheduleMessageForm onSuccess={() => setIsFormOpen(false)} />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -6,6 +6,7 @@ import { socketService } from '../../services/socket.service';
 jest.mock('../../services/socket.service', () => ({
   socketService: {
     emitToRoom: jest.fn(),
+    emitToChannel: jest.fn(),
   },
 }));
 

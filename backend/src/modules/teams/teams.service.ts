@@ -3,13 +3,27 @@ import { redis } from '../../config/redis';
 import { logger } from '../../utils/logger';
 import { RateLimiter } from '../../utils/rateLimiter';
 import { GraphBatch } from '../../utils/graphBatch';
+import { ClientCredentialsService } from '../../auth/clientCredentials';
+import { createGraphClient } from '../../config/graphClient';
 
-const TEAMS_CACHE_TTL = 300; // 5 minutes
+const TEAMS_CACHE_TTL = 10; // 10 seconds for testing
 
 const DEMO_TEAMS = [
   { id: 'demo-team-001', displayName: '🚀 Dev Team (Demo)', description: 'Demo team for testing', webUrl: '#', _isDemo: true },
   { id: 'demo-team-002', displayName: '📢 Marketing (Demo)', description: 'Demo marketing team', webUrl: '#', _isDemo: true },
 ];
+
+const DEMO_CHANNELS: Record<string, any[]> = {
+  'demo-team-001': [
+    { id: 'demo-ch-001', displayName: 'General', description: 'General channel' },
+    { id: 'demo-ch-002', displayName: 'Development', description: 'Dev updates' },
+    { id: 'demo-ch-003', displayName: 'Bugs', description: 'Issue tracking' }
+  ],
+  'demo-team-002': [
+    { id: 'demo-ch-101', displayName: 'General', description: 'General channel' },
+    { id: 'demo-ch-102', displayName: 'Campaigns', description: 'Marketing campaigns' }
+  ]
+};
 
 export class TeamsService {
   async getJoinedTeams(client: Client, userId: string) {
@@ -20,7 +34,7 @@ export class TeamsService {
     return RateLimiter.throttle(userId, async () => {
         try {
             const allTeams: any[] = [];
-            let pageResult = await client.api('/me/joinedTeams').select('id,displayName,description,webUrl').top(50).get();
+            let pageResult = await client.api('/me/joinedTeams').select('id,displayName,description,webUrl').get();
             allTeams.push(...(pageResult.value || []));
 
             while (pageResult['@odata.nextLink']) {
@@ -28,12 +42,12 @@ export class TeamsService {
                 allTeams.push(...(pageResult.value || []));
             }
 
-            const result = allTeams.length > 0 ? allTeams : DEMO_TEAMS;
+            const result = allTeams;
             await redis.setex(cacheKey, TEAMS_CACHE_TTL, JSON.stringify(result));
             return result;
         } catch (error: any) {
             logger.warn('Graph teams fetch failed', { error: error.message });
-            return DEMO_TEAMS;
+            return [];
         }
     });
   }
@@ -46,16 +60,24 @@ export class TeamsService {
   }
 
   async getTeamChannels(client: Client, teamId: string, userId: string) {
-    if (teamId.startsWith('demo-team-')) return { value: [] };
+    if (teamId.startsWith('demo-team-')) {
+        return { value: DEMO_CHANNELS[teamId] || [] };
+    }
 
     const cacheKey = `teams:channels:${teamId}`;
     const cached = await redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
     return RateLimiter.throttle(userId, async () => {
-        const result = await client.api(`/teams/${teamId}/channels`).get();
-        await redis.setex(cacheKey, TEAMS_CACHE_TTL, JSON.stringify(result));
-        return result;
+        try {
+            const result = await client.api(`/teams/${teamId}/channels`).get();
+            await redis.setex(cacheKey, TEAMS_CACHE_TTL, JSON.stringify(result));
+            return result;
+        } catch (error: any) {
+            logger.warn('Graph channels fetch failed', { teamId, error: error.message });
+            // Fallback to empty list or mock if real fetch fails
+            return { value: [] };
+        }
     });
   }
 
@@ -66,13 +88,26 @@ export class TeamsService {
 
   async getTeamMembers(client: Client, teamId: string, userId: string) {
     if (teamId.startsWith('demo-team-')) return { value: [] };
-    return client.api(`/teams/${teamId}/members`).get();
+    try {
+        return await client.api(`/teams/${teamId}/members`).get();
+    } catch (error: any) {
+        // Fallback to app token if delegated permissions are missing
+        if (error.statusCode === 403 || error.message?.includes('Missing scope permissions')) {
+            logger.info('Falling back to app-token for team members fetch', { teamId });
+            const appToken = await ClientCredentialsService.getAppToken();
+            if (appToken) {
+                const appClient = createGraphClient(appToken);
+                return await appClient.api(`/teams/${teamId}/members`).get();
+            }
+        }
+        throw error;
+    }
   }
 
   async getInitialData(client: Client, userId: string) {
     return RateLimiter.throttle(userId, async () => {
         const requests = [
-            { id: 'teams', method: 'GET', url: '/me/joinedTeams?$select=id,displayName,description&$top=50' },
+            { id: 'teams', method: 'GET', url: '/me/joinedTeams?$select=id,displayName,description' },
             { id: 'me', method: 'GET', url: '/me' }
         ];
 

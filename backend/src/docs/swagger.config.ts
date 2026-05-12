@@ -64,9 +64,9 @@ Authorization: Bearer <session_token>
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
   apis: [
-    path.join(process.cwd(), 'src/docs/swagger/*.doc.ts'),
-    path.join(process.cwd(), 'src/docs/schemas/*.ts'),
-    path.join(process.cwd(), 'src/index.ts'),
+    path.join(__dirname, 'swagger/*.doc.{ts,js}'),
+    path.join(__dirname, 'schemas/*.{ts,js}'),
+    path.join(__dirname, '../index.{ts,js}'),
   ],
 };
 

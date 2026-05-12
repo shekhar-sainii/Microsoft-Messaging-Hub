@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, Edit2, Trash2, LayoutTemplate, Search, Sparkles, Zap, ShieldCheck, X } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, LayoutTemplate, Search, Sparkles, Zap, ShieldCheck, X, AlertCircle } from 'lucide-react';
 import { useGetTemplatesQuery, useDeleteTemplateMutation } from '../templatesApi';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { PREBUILT_TEMPLATES } from '../data/prebuiltTemplates';
+import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
 import toast from 'react-hot-toast';
 
 export const TemplateLibrary: React.FC = () => {
@@ -14,6 +15,8 @@ export const TemplateLibrary: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [activeFilter, setActiveFilter] = useState<'all' | 'adaptive_card' | 'html'>('all');
+  const [pendingDelete, setPendingDelete] = useState<any>(null);
+  const [pendingEdit, setPendingEdit] = useState<any>(null);
 
   const allTemplates = useMemo(() => {
     const db = dbTemplates || [];
@@ -36,31 +39,37 @@ export const TemplateLibrary: React.FC = () => {
 
   const handleDelete = (e: React.MouseEvent, template: any) => {
     e.stopPropagation();
-    
-    // Check if it's a hardcoded prebuilt OR a system template from DB
     const isSystem = template?._id?.startsWith('pb-') || template?.userId === 'system';
-    
     if (isSystem) {
         toast.error('System assets are read-only');
         return;
     }
-    
-    if (!template?._id) {
-        toast.error('Cannot locate asset reference');
-        return;
-    }
+    setPendingDelete(template);
+  };
 
-    if (window.confirm(`Permanently remove "${template.name}"?`)) {
-        deleteTemplate(template._id)
-            .unwrap()
-            .then(() => toast.success('Asset removed from repository'))
-            .catch((err: any) => toast.error(`Removal failed: ${err.data?.message || err.message}`));
-    }
+  const executeDelete = () => {
+    if (!pendingDelete?._id) return;
+    deleteTemplate(pendingDelete._id)
+        .unwrap()
+        .then(() => {
+            toast.success('Asset removed from repository');
+            setPendingDelete(null);
+        })
+        .catch((err: any) => {
+            toast.error(`Removal failed: ${err.data?.message || err.message}`);
+            setPendingDelete(null);
+        });
   };
 
   const handleEdit = (e: React.MouseEvent, template: any) => {
     e.stopPropagation();
-    navigate('/builder', { state: { template } });
+    setPendingEdit(template);
+  };
+
+  const executeEdit = () => {
+    if (!pendingEdit) return;
+    navigate('/builder', { state: { template: pendingEdit } });
+    setPendingEdit(null);
   };
 
   return (
@@ -90,7 +99,7 @@ export const TemplateLibrary: React.FC = () => {
 
       <div className="flex flex-col md:flex-row items-center gap-4">
         <div className="relative group flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-900 group-focus-within:text-indigo-600 transition-colors" size={16} />
             <input 
               type="text" 
               placeholder="Search repository..." 
@@ -99,7 +108,7 @@ export const TemplateLibrary: React.FC = () => {
               className="w-full pl-12 pr-10 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-lg shadow-slate-100/30"
             />
             {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-900 hover:text-slate-600">
                     <X size={14} />
                 </button>
             )}
@@ -153,7 +162,7 @@ export const TemplateLibrary: React.FC = () => {
                       <button 
                           onClick={(e) => handleEdit(e, template)}
                           title="Modify Asset"
-                          className="w-9 h-9 bg-slate-50 border border-slate-100 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center justify-center transition-all"
+                          className="w-9 h-9 bg-slate-50 border border-slate-100 text-slate-900 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center justify-center transition-all"
                       >
                         <Edit2 size={14} />
                       </button>
@@ -161,7 +170,7 @@ export const TemplateLibrary: React.FC = () => {
                         onClick={(e) => handleDelete(e, template)}
                         disabled={isSystem}
                         title={isSystem ? "Read-only Asset" : "Remove Asset"}
-                        className={`w-9 h-9 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center transition-all ${isSystem ? 'opacity-30 cursor-not-allowed' : 'text-slate-400 hover:text-red-600 hover:bg-white'}`}
+                        className={`w-9 h-9 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center transition-all ${isSystem ? 'opacity-30 cursor-not-allowed' : 'text-slate-900 hover:text-red-600 hover:bg-white'}`}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -201,6 +210,28 @@ export const TemplateLibrary: React.FC = () => {
           })
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={executeDelete}
+        title="Delete Template Asset"
+        message={`Are you sure you want to permanently remove "${pendingDelete?.name}"? This will remove it from the digital catalog and it will no longer be available for dispatch.`}
+        confirmText="Remove Asset"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      <ConfirmationModal
+        isOpen={!!pendingEdit}
+        onClose={() => setPendingEdit(null)}
+        onConfirm={executeEdit}
+        title="Enter Template Builder"
+        message={`Do you want to open the visual builder for "${pendingEdit?.name}"? You can modify the layout and structure before dispatching.`}
+        confirmText="Open Builder"
+        cancelText="Cancel"
+        type="info"
+      />
     </div>
   );
 };

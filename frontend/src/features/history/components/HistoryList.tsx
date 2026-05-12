@@ -5,6 +5,9 @@ import { Search, MessageSquare, Trash2, Reply, RefreshCw, Filter, Calendar, Exte
 import { useMessagesHistory, useSearchMessages, useDeleteMessage } from '../../../hooks/useMessagesData';
 import { ThreadModal } from './ThreadModal';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
+import { Pagination } from '../../../components/common/Pagination';
+import toast from 'react-hot-toast';
 
 export const HistoryList: React.FC = () => {
   const location = useLocation();
@@ -19,6 +22,10 @@ export const HistoryList: React.FC = () => {
   const { data: history, isLoading: historyLoading, refetch } = useMessagesHistory();
   const { data: searchResults, isLoading: searchLoading } = useSearchMessages(debouncedSearch);
   const { mutate: deleteMessage } = useDeleteMessage();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     if (initialSearch) {
@@ -28,6 +35,9 @@ export const HistoryList: React.FC = () => {
 
   const messages = debouncedSearch.length > 2 ? searchResults : history;
   const isLoading = (searchTerm.length > 2 && searchTerm !== debouncedSearch) || (debouncedSearch.length > 2 && searchLoading) || historyLoading;
+
+  const totalPages = Math.ceil((messages?.length || 0) / pageSize);
+  const paginatedMessages = messages?.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const stats = [
     { label: 'Total Sent', value: history?.length || 0, icon: MessageSquare, color: 'blue' },
@@ -116,7 +126,7 @@ export const HistoryList: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {messages?.map((msg: any, i: number) => (
+            {paginatedMessages?.map((msg: any, i: number) => (
               <motion.div 
                 key={msg.id || i}
                 initial={{ opacity: 0, x: -10 }}
@@ -126,7 +136,7 @@ export const HistoryList: React.FC = () => {
               >
                 <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 flex flex-col lg:flex-row gap-6 relative z-10 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-50/50">
                   
-                  <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-inner">
+                  <div className="w-12 h-12 bg-slate-50 text-slate-900 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-inner">
                     <MessageSquare size={20} />
                   </div>
 
@@ -167,17 +177,16 @@ export const HistoryList: React.FC = () => {
                   <div className="flex lg:flex-col items-center justify-end gap-2 lg:border-l lg:border-slate-50 lg:pl-6">
                     <button 
                       onClick={() => setSelectedMessage(msg)}
-                      className="w-10 h-10 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-all"
+                      className="w-10 h-10 bg-slate-50 text-slate-900 hover:text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-all"
                     >
                       <Reply size={16} />
                     </button>
                     <button 
                       onClick={() => {
-                          if(window.confirm('Delete this message archive?')) {
-                              deleteMessage({ teamId: msg.teamId, channelId: msg.channelId, msgId: msg.id });
-                          }
+                        setSelectedMessage(msg);
+                        setConfirmDelete(true);
                       }}
-                      className="w-10 h-10 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center transition-all"
+                      className="w-10 h-10 bg-slate-50 text-slate-900 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center transition-all"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -185,14 +194,43 @@ export const HistoryList: React.FC = () => {
                 </div>
               </motion.div>
             ))}
+
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={messages?.length || 0}
+                onPageChange={setCurrentPage}
+                pageSize={pageSize}
+            />
           </div>
         )}
       </div>
 
       <ThreadModal 
-        isOpen={!!selectedMessage}
+        isOpen={!!selectedMessage && !confirmDelete}
         onClose={() => setSelectedMessage(null)}
         message={selectedMessage}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmDelete}
+        onClose={() => {
+            setConfirmDelete(false);
+            setSelectedMessage(null);
+        }}
+        onConfirm={() => {
+            if (selectedMessage) {
+                deleteMessage({ teamId: selectedMessage.teamId, channelId: selectedMessage.channelId, msgId: selectedMessage.id || selectedMessage.messageId });
+                setConfirmDelete(false);
+                setSelectedMessage(null);
+                toast.success('Archive entry removed');
+            }
+        }}
+        title="Delete Archive Entry"
+        message="Are you sure you want to permanently remove this message from the history archive? This action cannot be undone."
+        confirmText="Delete Permanently"
+        cancelText="Keep Record"
+        type="danger"
       />
     </div>
   );

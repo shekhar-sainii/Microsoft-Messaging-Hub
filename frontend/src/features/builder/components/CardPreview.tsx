@@ -19,9 +19,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ cardJson }) => {
                 containerStyles: {
                     default: { backgroundColor: '#ffffff', foregroundColors: { default: { default: '#1e293b', subtle: '#64748b' } } },
                     emphasis: { backgroundColor: '#f8fafc', foregroundColors: { default: { default: '#1e293b', subtle: '#64748b' } } },
+                    accent: { backgroundColor: '#0ea5e9', foregroundColors: { default: { default: '#ffffff', subtle: '#e0f2fe' } } },
+                    good: { backgroundColor: '#10b981', foregroundColors: { default: { default: '#ffffff', subtle: '#dcfce7' } } },
+                    attention: { backgroundColor: '#ef4444', foregroundColors: { default: { default: '#ffffff', subtle: '#fee2e2' } } },
+                    warning: { backgroundColor: '#f59e0b', foregroundColors: { default: { default: '#ffffff', subtle: '#fef3c7' } } },
                 },
                 actions: {
-                    buttonSpacing: 8,
+                    buttonSpacing: 12,
                     actionAlignment: 'stretch',
                 },
             });
@@ -29,6 +33,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ cardJson }) => {
             const rendered = ac.render();
             if (rendered) {
                 rendered.style.fontFamily = 'Segoe UI, system-ui, sans-serif';
+                rendered.style.width = '100%';
+                rendered.style.border = '1px solid #e2e8f0';
+                rendered.style.borderRadius = '1rem';
+                rendered.style.overflow = 'hidden';
+                rendered.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.05)';
                 containerRef.current.appendChild(rendered);
             }
         } catch (e) {

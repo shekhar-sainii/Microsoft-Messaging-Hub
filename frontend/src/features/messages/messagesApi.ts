@@ -11,6 +11,11 @@ export interface SendMessagePayload {
     channelId: string;
     content: string;
     mentions?: any[];
+    isAdaptiveCard?: boolean;
+    cardJson?: any;
+    subject?: string;
+    importance?: 'normal' | 'high' | 'urgent';
+    attachments?: any[];
 }
 
 export interface ReplyPayload {

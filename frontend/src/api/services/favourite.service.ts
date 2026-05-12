@@ -10,16 +10,16 @@ export interface FavouriteChannel {
 export const FavouriteService = {
   getFavourites: async (): Promise<FavouriteChannel[]> => {
     const response = await apiClient.get('/favourites');
-    return response.data;
+    return response.data.data || [];
   },
 
   addFavourite: async (data: FavouriteChannel): Promise<any> => {
     const response = await apiClient.post('/favourites', data);
-    return response.data;
+    return response.data.data;
   },
 
   removeFavourite: async (channelId: string): Promise<any> => {
     const response = await apiClient.delete(`/favourites/${channelId}`);
-    return response.data;
+    return response.data.data;
   }
 };

@@ -1,22 +1,58 @@
 export const INITIAL_CARD_JSON = {
     type: "AdaptiveCard",
-    version: "1.4",
+    version: "1.5",
     body: [
         {
-            type: "TextBlock",
-            text: "Your Card Title",
-            size: "Large",
-            weight: "Bolder",
-            color: "Accent",
+            type: "Container",
+            style: "accent",
+            bleed: true,
+            items: [
+                {
+                    type: "TextBlock",
+                    text: "✨ SYSTEM DESIGN HUB",
+                    size: "Small",
+                    weight: "Bolder",
+                    color: "Light"
+                },
+                {
+                    type: "TextBlock",
+                    text: "Premium Layout Workspace",
+                    size: "ExtraLarge",
+                    weight: "Bolder",
+                    color: "Light",
+                    spacing: "None"
+                }
+            ]
         },
         {
             type: "TextBlock",
-            text: "Drag elements from the left panel to build your card.",
-            wrap: true,
-            isSubtle: true,
+            text: "Design Excellence Ready",
+            size: "Large",
+            weight: "Bolder",
+            color: "Default",
+            spacing: "Medium"
         },
+        {
+            type: "TextBlock",
+            text: "Drag elements from the left inventory palette to build dynamic layouts. Customize container styling tokens directly to generate WOW visual experiences.",
+            wrap: true,
+            size: "Medium"
+        },
+        {
+            type: "FactSet",
+            facts: [
+                { title: "Status:", value: "🟢 Fully Operational" },
+                { title: "Target Version:", value: "v1.5 Enterprise Standard" }
+            ]
+        }
     ],
-    actions: [],
+    actions: [
+        {
+            type: "Action.Submit",
+            title: "Engage Relay Flow",
+            style: "positive"
+        }
+    ],
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
 };
 

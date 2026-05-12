@@ -18,12 +18,16 @@ export class AdaptiveCardUtils {
             return { valid: false, error: 'Missing version' };
         }
 
-        // Graph API only supports Adaptive Cards up to version 1.4
-        if (parseFloat(cardJson.version) > 1.4) {
+        // Allow up to version 1.5 for design flexibility, normalize to 1.4 for Graph compliance
+        if (parseFloat(cardJson.version) > 1.5) {
             return {
                 valid: false,
-                error: `Adaptive Card version ${cardJson.version} is not supported by Graph API. Maximum supported version is 1.4.`,
+                error: `Adaptive Card version ${cardJson.version} is not supported. Maximum supported version is 1.5.`,
             };
+        }
+
+        if (parseFloat(cardJson.version) > 1.4) {
+            cardJson.version = "1.4";
         }
 
         if (!Array.isArray(cardJson.body)) {

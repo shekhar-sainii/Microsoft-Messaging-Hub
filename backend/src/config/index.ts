@@ -15,7 +15,7 @@ export const config = {
     tenantId: process.env.TENANT_ID,
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    authority: `https://login.microsoftonline.com/common`,
+    authority: `https://login.microsoftonline.com/${process.env.TENANT_ID || 'common'}`,
   },
   webhook: {
     url: process.env.WEBHOOK_URL || '',

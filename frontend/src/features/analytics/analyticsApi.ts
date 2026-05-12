@@ -12,6 +12,7 @@ export interface SummaryStats {
     activeSubs: number;
     totalSent: number;
     totalFailed: number;
+    totalMessages: number;
     uptime: string;
 }
 

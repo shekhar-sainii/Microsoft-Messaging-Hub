@@ -43,3 +43,7 @@ MERN_Teams_Integration_Task.pdf
 extracted_doc.txt
 ts_errors.txt
 tsc_errors.txt
+backend/test_output.txt
+keys/
+test-results/
+playwright-report/

@@ -52,6 +52,15 @@ export class AuthController {
     // Redirect to frontend with success flag
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?consent=granted&tenant=${tenant}`);
   }
+
+  async getGraphToken(req: AuthenticatedRequest, res: Response) {
+    try {
+        const token = await authService.getGraphToken(req.user.microsoftId);
+        return res.json({ success: true, data: { accessToken: token } });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: 'Failed to fetch graph token' });
+    }
+  }
 }
 
 export const authController = new AuthController();

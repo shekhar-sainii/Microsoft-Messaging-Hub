@@ -32,10 +32,19 @@ export const schedulerApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: ['Scheduler'],
         }),
+        createSchedule: builder.mutation<Schedule, Partial<Schedule>>({
+            query: (payload) => ({
+                url: '/schedule',
+                method: 'POST',
+                body: payload,
+            }),
+            invalidatesTags: ['Scheduler'],
+        }),
     }),
 });
 
 export const {
     useGetScheduledMessagesQuery,
     useCancelScheduleMutation,
+    useCreateScheduleMutation,
 } = schedulerApi;

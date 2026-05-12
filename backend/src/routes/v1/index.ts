@@ -8,6 +8,7 @@ import templateRoutes from '../../modules/templates/template.routes';
 import analyticsRoutes from '../../modules/analytics/analytics.routes';
 import favouriteRoutes from '../../modules/favourites/favourite.routes';
 import botRoutes from '../../modules/bot/bot.routes';
+import userRoutes from '../../modules/users/user.routes';
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use('/analytics', analyticsRoutes);
 router.use('/audit', analyticsRoutes);
 router.use('/favourites', favouriteRoutes);
 router.use('/bot', botRoutes);
+router.use('/users', userRoutes);
 
 export default router;

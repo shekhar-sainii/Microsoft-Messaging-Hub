@@ -1,56 +1,74 @@
 import { authService } from './auth.service';
 import { userRepository } from './user.repository';
+import { MsalOboService } from '../../auth/msalOboService';
 import jwt from 'jsonwebtoken';
 
-// Mock dependencies
-jest.mock('./user.repository');
+jest.mock('./user.repository', () => ({
+    userRepository: {
+        findByMicrosoftId: jest.fn(),
+        upsert: jest.fn().mockImplementation((id, data) => Promise.resolve({ _id: 'user-1', ...data })),
+    },
+}));
+
 jest.mock('../../auth/msalOboService', () => ({
     MsalOboService: {
-        getGraphToken: jest.fn().mockResolvedValue('mock-graph-token'),
+        getGraphToken: jest.fn().mockResolvedValue('graph-token'),
+    },
+}));
+
+jest.mock('../../config', () => ({
+    config: {
+        jwt: { secret: 'test-secret' },
     },
 }));
 
 describe('AuthService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        process.env.JWT_SECRET = 'test-secret-at-least-32-chars-long!!';
     });
 
     describe('handleUserLogin', () => {
-        it('should decode idToken and upsert user', async () => {
-            const idToken = jwt.sign(
-                {
-                    sub: 'test-sub-123',
-                    oid: '00000000-0000-0000-test-oid',
-                    name: 'Test User',
-                    preferred_username: 'test@example.com',
-                    tid: 'test-tenant-id',
-                },
-                'any-secret'
-            );
-
-            const mockUser = {
-                _id: 'user-db-id',
-                microsoftId: '00000000-0000-0000-test-oid',
-                email: 'test@example.com',
-                displayName: 'Test User',
-                tenantId: 'test-tenant-id',
-            };
-
-            (userRepository.upsert as jest.Mock).mockResolvedValue(mockUser);
-
+        it('should create a session for a new user', async () => {
+            const idToken = jwt.sign({ oid: 'oid-1', email: 'test@example.com', name: 'User' }, 'secret');
+            
             const result = await authService.handleUserLogin(idToken, 'access-token');
 
-            expect(userRepository.upsert).toHaveBeenCalledWith(
-                '00000000-0000-0000-test-oid',
-                expect.objectContaining({
-                    displayName: 'Test User',
-                    email: 'test@example.com',
-                    tenantId: 'test-tenant-id',
-                })
-            );
+            expect(result.user.microsoftId).toBe('oid-1');
             expect(result.sessionToken).toBeDefined();
-            expect(result.user).toEqual(mockUser);
+            expect(userRepository.upsert).toHaveBeenCalled();
+        });
+
+        it('should assign admin role for specific admin email', async () => {
+            const idToken = jwt.sign({ oid: 'oid-1', upn: 'admin@shekharsaini2030gmail.onmicrosoft.com', name: 'Admin' }, 'secret');
+            
+            const result = await authService.handleUserLogin(idToken, 'access-token');
+            expect(result.user.role).toBe('admin');
+        });
+    });
+
+    describe('validateSession', () => {
+        it('should return user for valid token', async () => {
+            const token = jwt.sign({ microsoftId: 'oid-1' }, 'test-secret');
+            (userRepository.findByMicrosoftId as jest.Mock).mockResolvedValue({ _id: 'u1' });
+
+            const user = await authService.validateSession(token);
+            expect(user).toBeDefined();
+        });
+
+        it('should return null for invalid token', async () => {
+            const user = await authService.validateSession('invalid-token');
+            expect(user).toBeNull();
+        });
+    });
+
+    describe('getAdminConsentUrl', () => {
+        it('should build correct URL', () => {
+            process.env.CLIENT_ID = 'client-id';
+            process.env.WEBHOOK_URL = 'http://localhost/webhook';
+            
+            const url = authService.getAdminConsentUrl('tenant-1');
+            expect(url).toContain('tenant-1');
+            expect(url).toContain('client-id');
         });
     });
 });

@@ -16,8 +16,11 @@ export abstract class BaseRepository<T extends Document> {
         return this.model.findOne(filter).exec();
     }
 
-    async find(filter: any, sort: any = { updatedAt: -1 }): Promise<T[]> {
-        return this.model.find(filter).sort(sort).exec();
+    async find(filter: any, sort: any = { updatedAt: -1 }, limit?: number, skip?: number): Promise<T[]> {
+        let query = this.model.find(filter).sort(sort);
+        if (skip !== undefined) query = query.skip(skip);
+        if (limit !== undefined) query = query.limit(limit);
+        return query.exec();
     }
 
     async update(filter: any, updateData: any): Promise<T | null> {

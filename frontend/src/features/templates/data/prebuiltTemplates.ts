@@ -1,159 +1,296 @@
 export const PREBUILT_TEMPLATES = [
   {
     _id: 'pb-1',
-    name: '📢 Announcement',
-    description: 'A stylish card for organization-wide announcements with a header image.',
+    name: '📢 Enterprise Broadcast',
+    description: 'Vibrant, high-impact card for organization-wide announcements with premium headers.',
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.4",
+      version: "1.5",
       body: [
         {
-          type: "Image",
-          url: "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=800",
-          size: "stretch",
-          aspectRatio: "16:9"
+          type: "Container",
+          style: "accent",
+          bleed: true,
+          items: [
+            {
+              type: "ColumnSet",
+              columns: [
+                {
+                  type: "Column",
+                  width: "stretch",
+                  items: [
+                    {
+                      type: "TextBlock",
+                      text: "GLOBAL BROADCAST",
+                      size: "Small",
+                      weight: "Bolder",
+                      color: "Light"
+                    },
+                    {
+                      type: "TextBlock",
+                      text: "Core Operations Center",
+                      size: "ExtraLarge",
+                      weight: "Bolder",
+                      color: "Light",
+                      spacing: "None"
+                    }
+                  ]
+                },
+                {
+                  type: "Column",
+                  width: "auto",
+                  items: [
+                    {
+                      type: "Image",
+                      url: "https://adaptivecards.io/content/cats/1.png",
+                      size: "Small",
+                      style: "Person"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
         {
           type: "TextBlock",
-          text: "Important Announcement",
+          text: "Next-Gen Infrastructure Rolled Out",
+          size: "Large",
           weight: "Bolder",
-          size: "ExtraLarge",
-          wrap: true
+          color: "Default",
+          spacing: "Medium"
         },
         {
           type: "TextBlock",
-          text: "We are excited to share some major updates regarding our upcoming project phase. Please review the details below.",
-          wrap: true
+          text: "Our core messaging hub nodes have been successfully updated to maintain 99.99% broadcast SLA across all integrated Microsoft Teams channels.",
+          wrap: true,
+          size: "Medium"
+        },
+        {
+          type: "FactSet",
+          facts: [
+            { title: "Priority:", value: "⚡ Immediate / Executive" },
+            { title: "Target Audience:", value: "All Organization Hubs" }
+          ]
         }
-      ]
+      ],
+      actions: [
+        { type: "Action.OpenUrl", title: "View Mission Telemetry", url: "https://teams.microsoft.com" }
+      ],
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
     },
     createdAt: new Date().toISOString()
   },
   {
     _id: 'pb-2',
-    name: '⚠️ Critical Alert',
-    description: 'Red-themed card for urgent system alerts or incident reports.',
+    name: '⚠️ Mission Alert (Critical)',
+    description: 'Attention-grabbing layout with full warning headers and incident summary.',
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.4",
+      version: "1.5",
       body: [
         {
           type: "Container",
           style: "attention",
+          bleed: true,
           items: [
             {
               type: "TextBlock",
-              text: "SYSTEM ALERT: CRITICAL",
+              text: "🚨 CRITICAL SYSTEM ANOMALY",
               weight: "Bolder",
+              size: "Medium",
               color: "Attention"
             }
           ]
         },
         {
           type: "TextBlock",
-          text: "Service Interruption Detected",
+          text: "Telemetry Relays Experiencing High Latency",
           size: "Large",
           weight: "Bolder",
-          wrap: true
+          wrap: true,
+          spacing: "Medium"
         },
         {
           type: "TextBlock",
-          text: "We are currently experiencing issues with the production database. Our engineers are investigating.",
-          wrap: true
+          text: "Automated routing daemons are mitigating an ongoing surge in inbound webhook payloads. Action is advised if latency persists.",
+          wrap: true,
+          isSubtle: true
+        },
+        {
+          type: "FactSet",
+          facts: [
+            { title: "Node ID:", value: "msh-cluster-us-east" },
+            { title: "SLA Risk:", value: "Elevated" }
+          ]
         }
-      ]
+      ],
+      actions: [
+        { type: "Action.Submit", title: "Acknowledge Incident", style: "destructive", data: { action: "ack_alert" } }
+      ],
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
     },
     createdAt: new Date().toISOString()
   },
   {
     _id: 'pb-3',
-    name: '✅ Approval Request',
-    description: 'A professional approval workflow card with action buttons.',
+    name: '✅ Premium Clearance Request',
+    description: 'A beautiful executive sign-off layout with success borders and binary actions.',
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.4",
+      version: "1.5",
       body: [
         {
+          type: "Container",
+          style: "good",
+          bleed: true,
+          items: [
+            {
+              type: "TextBlock",
+              text: "🔒 CLEARANCE REQUIRED",
+              weight: "Bolder",
+              size: "Small",
+              color: "Good"
+            }
+          ]
+        },
+        {
           type: "TextBlock",
-          text: "Approval Required: Budget Increase",
+          text: "Authorization for Multi-Tenant Gateway",
+          size: "Large",
           weight: "Bolder",
-          size: "Large"
+          wrap: true,
+          spacing: "Medium"
         },
         {
           type: "FactSet",
           facts: [
-            { title: "Requested By:", value: "John Doe" },
-            { title: "Amount:", value: "$5,000" },
-            { title: "Project:", value: "Hub Integration" }
+            { title: "Requester:", value: "SecOps Service Principal" },
+            { title: "Permissions:", value: "Teamwork.Migrate.All" },
+            { title: "Risk Scope:", value: "Global Directory Tenant" }
           ]
         }
       ],
       actions: [
-        { type: "Action.Submit", title: "Approve", style: "positive", data: { action: "approve" } },
-        { type: "Action.Submit", title: "Reject", style: "destructive", data: { action: "reject" } }
-      ]
+        { type: "Action.Submit", title: "Grant Consent", style: "positive", data: { auth: "approved" } },
+        { type: "Action.Submit", title: "Deny Access", style: "destructive", data: { auth: "denied" } }
+      ],
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
     },
     createdAt: new Date().toISOString()
   },
   {
     _id: 'pb-4',
-    name: '📊 Status Update',
-    description: 'Weekly status report template using FactSets.',
+    name: '📊 Pulse Metric Insights',
+    description: 'Sleek multi-column card presenting live operational gauges and metrics.',
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.4",
+      version: "1.5",
       body: [
         {
           type: "TextBlock",
-          text: "Weekly Progress Update",
+          text: "NODE OPERATIONAL DASHBOARD",
+          isSubtle: true,
           weight: "Bolder",
-          size: "Large"
+          size: "Small"
         },
         {
-          type: "FactSet",
-          facts: [
-            { title: "Backend:", value: "95% Complete" },
-            { title: "Frontend:", value: "80% Complete" },
-            { title: "Testing:", value: "In Progress" }
+          type: "TextBlock",
+          text: "Live Health Telemetry",
+          weight: "Bolder",
+          size: "ExtraLarge",
+          color: "Accent",
+          spacing: "None"
+        },
+        {
+          type: "ColumnSet",
+          spacing: "Medium",
+          columns: [
+            {
+              type: "Column",
+              width: "stretch",
+              items: [
+                {
+                  type: "Container",
+                  style: "emphasis",
+                  items: [
+                    { type: "TextBlock", text: "Throughput", size: "Small", isSubtle: true },
+                    { type: "TextBlock", text: "4,210", size: "Large", weight: "Bolder", color: "Good" }
+                  ]
+                }
+              ]
+            },
+            {
+              type: "Column",
+              width: "stretch",
+              items: [
+                {
+                  type: "Container",
+                  style: "emphasis",
+                  items: [
+                    { type: "TextBlock", text: "API Health", size: "Small", isSubtle: true },
+                    { type: "TextBlock", text: "99.9%", size: "Large", weight: "Bolder", color: "Accent" }
+                  ]
+                }
+              ]
+            }
           ]
         }
-      ]
+      ],
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
     },
     createdAt: new Date().toISOString()
   },
   {
     _id: 'pb-5',
-    name: '🗳️ Quick Poll',
-    description: 'Interactive poll card to gather team feedback.',
+    name: '🗳️ Live Cadence Survey',
+    description: 'Interactive choice card with sleek container forms to capture feedback.',
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.4",
+      version: "1.5",
       body: [
         {
-          type: "TextBlock",
-          text: "Next Team Meeting Time?",
-          weight: "Bolder",
-          size: "Large"
+          type: "Container",
+          style: "emphasis",
+          bleed: true,
+          items: [
+            {
+              type: "TextBlock",
+              text: "⚡ INSTANT FEEDBACK NODE",
+              weight: "Bolder",
+              size: "Small",
+              color: "Accent"
+            },
+            {
+              type: "TextBlock",
+              text: "Select Optimal Broadcast Cadence",
+              size: "Large",
+              weight: "Bolder",
+              wrap: true
+            }
+          ]
         },
         {
           type: "Input.ChoiceSet",
-          id: "meetingTime",
+          id: "cadenceVote",
           style: "expanded",
           choices: [
-            { title: "Monday 10 AM", value: "mon_10" },
-            { title: "Tuesday 2 PM", value: "tue_2" },
-            { title: "Wednesday 11 AM", value: "wed_11" }
-          ]
+            { title: "Continuous Delivery Pipeline", value: "cd_pipeline" },
+            { title: "Daily Scheduled Window", value: "daily_window" },
+            { title: "On-Demand Relay Only", value: "on_demand" }
+          ],
+          spacing: "Medium"
         }
       ],
       actions: [
-        { type: "Action.Submit", title: "Vote", style: "positive" }
-      ]
+        { type: "Action.Submit", title: "Register Telemetry Preference", style: "positive" }
+      ],
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
     },
     createdAt: new Date().toISOString()
   }

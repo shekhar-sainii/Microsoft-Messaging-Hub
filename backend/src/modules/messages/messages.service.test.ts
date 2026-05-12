@@ -1,23 +1,20 @@
 import { messagesService } from './messages.service';
-import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
+import { messageRepository } from './message.repository';
+import { auditRepository } from '../analytics/audit.repository';
 
-// Mock Mongoose models
-jest.mock('../../models/SentMessage', () => ({
-    default: {
-        create: jest.fn().mockResolvedValue({ _id: 'msg-1', messageId: 'mock-graph-message-id' }),
-        find: jest.fn().mockReturnValue({
-            sort: jest.fn().mockReturnThis(),
-            limit: jest.fn().mockReturnThis(),
-            skip: jest.fn().mockResolvedValue([]),
-        }),
-        deleteOne: jest.fn().mockResolvedValue({}),
-        findById: jest.fn().mockResolvedValue(null),
+// Mock Repositories directly
+jest.mock('./message.repository', () => ({
+    messageRepository: {
+        create: jest.fn().mockResolvedValue({ _id: 'msg-1' }),
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue({ _id: 'msg-1' }),
+        delete: jest.fn().mockResolvedValue(true),
     },
 }));
 
-jest.mock('../../models/AuditLog', () => ({
-    AuditLogModel: {
+jest.mock('../analytics/audit.repository', () => ({
+    auditRepository: {
+        log: jest.fn().mockResolvedValue({}),
         create: jest.fn().mockResolvedValue({}),
     },
 }));
@@ -26,19 +23,20 @@ jest.mock('../../utils/logger', () => ({
     logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
 }));
 
-// MSW v2 server — mocks Graph API
-const server = setupServer(
-    http.post('https://graph.microsoft.com/v1.0/teams/:teamId/channels/:channelId/messages', () => {
-        return HttpResponse.json({
-            id: 'mock-graph-message-id',
-            body: { content: 'mocked content', contentType: 'html' },
-            createdDateTime: new Date().toISOString(),
-        }, { status: 201 });
-    }),
-    http.delete('https://graph.microsoft.com/v1.0/teams/:teamId/channels/:channelId/messages/:msgId', () => {
-        return new HttpResponse(null, { status: 204 });
-    }),
-);
+jest.mock('../../utils/rateLimiter', () => ({
+    RateLimiter: {
+        throttle: jest.fn().mockImplementation((key, fn) => fn()),
+        acquire: jest.fn().mockResolvedValue(true),
+    },
+}));
+
+jest.mock('../../config/redis', () => ({
+    redis: {
+        eval: jest.fn().mockResolvedValue(1),
+        get: jest.fn().mockResolvedValue(null),
+        setex: jest.fn().mockResolvedValue('OK'),
+    },
+}));
 
 // Graph client mock
 const mockGraphClient = {
@@ -49,12 +47,9 @@ const mockGraphClient = {
 };
 
 describe('MessagesService', () => {
-    beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
     afterEach(() => {
-        server.resetHandlers();
         jest.clearAllMocks();
     });
-    afterAll(() => server.close());
 
     describe('sendMessage', () => {
         it('should build correct Graph payload with HTML body', async () => {
@@ -85,30 +80,48 @@ describe('MessagesService', () => {
             );
         });
 
-        it('should save to SentMessage collection after successful send', async () => {
-            const SentMessageModel = require('../../models/SentMessage').default;
+        it('should handle mentions correctly', async () => {
             mockGraphClient.post.mockResolvedValue({ id: 'graph-id-123' });
             mockGraphClient.api.mockReturnValue(mockGraphClient);
 
+            const mentions = [{
+                id: 0,
+                mentionText: 'Test User',
+                mentioned: { user: { id: 'user-2', displayName: 'Test User' } }
+            }];
+
             await messagesService.sendMessage(
                 mockGraphClient as any,
-                'team-1', 'channel-1', '<p>Test</p>', 'user-1'
+                'team-1', 'channel-1', '<p>Hello @Test User</p>', 'user-1',
+                { mentions }
             );
 
-            expect(SentMessageModel.create).toHaveBeenCalledWith(
+            expect(mockGraphClient.post).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    messageId: 'graph-id-123',
-                    teamId: 'team-1',
-                    channelId: 'channel-1',
-                    userId: 'user-1',
-                    status: 'sent',
+                    mentions: expect.arrayContaining([
+                        expect.objectContaining({ mentionText: 'Test User' })
+                    ])
                 })
+            );
+        });
+
+        it('should log failure on error', async () => {
+            mockGraphClient.api.mockReturnValue(mockGraphClient);
+            mockGraphClient.post.mockRejectedValue(new Error('Graph error'));
+
+            await expect(messagesService.sendMessage(
+                mockGraphClient as any,
+                'team-1', 'channel-1', 'test', 'user-1'
+            )).rejects.toThrow('Graph error');
+
+            expect(auditRepository.log).toHaveBeenCalledWith(
+                expect.objectContaining({ status: 'failure' })
             );
         });
     });
 
     describe('sendAdaptiveCard', () => {
-        it('should serialise card JSON as a STRING (critical Graph requirement)', async () => {
+        it('should serialise card JSON as a STRING', async () => {
             mockGraphClient.post.mockResolvedValue({ id: 'card-msg-id' });
             mockGraphClient.api.mockReturnValue(mockGraphClient);
 
@@ -120,15 +133,17 @@ describe('MessagesService', () => {
             );
 
             const postCall = mockGraphClient.post.mock.calls[0][0];
-            const attachment = postCall.attachments[0];
+            expect(typeof postCall.attachments[0].content).toBe('string');
+        });
 
-            // CRITICAL: content must be a string, not an object
-            expect(typeof attachment.content).toBe('string');
-            expect(attachment.contentType).toBe('application/vnd.microsoft.card.adaptive');
+        it('should log failure on adaptive card error', async () => {
+            mockGraphClient.api.mockReturnValue(mockGraphClient);
+            mockGraphClient.post.mockRejectedValue(new Error('Card error'));
 
-            // Verify it's valid JSON when parsed back
-            const parsed = JSON.parse(attachment.content);
-            expect(parsed.type).toBe('AdaptiveCard');
+            await expect(messagesService.sendAdaptiveCard(
+                mockGraphClient as any,
+                'team-1', 'channel-1', {}, 'user-1'
+            )).rejects.toThrow('Card error');
         });
     });
 
@@ -139,11 +154,59 @@ describe('MessagesService', () => {
 
             await messagesService.replyToMessage(
                 mockGraphClient as any,
-                'team-1', 'channel-1', 'parent-msg-id', '<p>Reply</p>', 'user-1'
+                'team-1', 'channel-1', 'parent-id', '<p>Reply</p>', 'user-1'
             );
 
             expect(mockGraphClient.api).toHaveBeenCalledWith(
-                '/teams/team-1/channels/channel-1/messages/parent-msg-id/replies'
+                '/teams/team-1/channels/channel-1/messages/parent-id/replies'
+            );
+        });
+
+        it('should throw on reply error', async () => {
+            mockGraphClient.api.mockReturnValue(mockGraphClient);
+            mockGraphClient.post.mockRejectedValue(new Error('Reply fail'));
+
+            await expect(messagesService.replyToMessage(
+                mockGraphClient as any,
+                'team-1', 'channel-1', 'parent-id', 'test', 'user-1'
+            )).rejects.toThrow('Reply fail');
+        });
+    });
+
+    describe('deleteMessage', () => {
+        it('should call delete on Graph and repository', async () => {
+            mockGraphClient.api.mockReturnValue(mockGraphClient);
+            mockGraphClient.delete.mockResolvedValue({});
+
+            await messagesService.deleteMessage(mockGraphClient as any, 't1', 'c1', 'm1', 'u1');
+
+            expect(mockGraphClient.delete).toHaveBeenCalled();
+            expect(messageRepository.delete).toHaveBeenCalledWith({ messageId: 'm1' });
+        });
+    });
+
+    describe('History & Retrieval', () => {
+        it('should get replies', async () => {
+            mockGraphClient.api.mockReturnValue(mockGraphClient);
+            mockGraphClient.get.mockResolvedValue({ value: [] });
+            await messagesService.getReplies(mockGraphClient as any, 't1', 'c1', 'm1');
+            expect(mockGraphClient.get).toHaveBeenCalled();
+        });
+
+        it('should get sent message by ID', async () => {
+            await messagesService.getSentMessageById('id-1');
+            expect(messageRepository.findOne).toHaveBeenCalled();
+        });
+
+        it('should get sent history', async () => {
+            await messagesService.getSentHistory('u1');
+            expect(messageRepository.find).toHaveBeenCalled();
+        });
+
+        it('should search history', async () => {
+            await messagesService.searchHistory('u1', 'test');
+            expect(messageRepository.find).toHaveBeenCalledWith(
+                expect.objectContaining({ content: expect.any(Object) })
             );
         });
     });

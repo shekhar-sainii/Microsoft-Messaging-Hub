@@ -1,17 +1,22 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Hash, PenTool, Globe, Clock, MessageSquare, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Hash, PenTool, Globe, Clock, MessageSquare, ArrowRight, ShieldCheck, Zap, X } from 'lucide-react';
 import { MessageComposer } from '../features/composer/components/MessageComposer';
 import { useSendMessageMutation } from '../features/messages/messagesApi';
 import { useGetTeamMembersQuery } from '../features/teams/teamsApi';
 import { skipToken } from '@reduxjs/toolkit/query/react';
+import { ScheduleMessageForm } from '../features/scheduler/components/ScheduleMessageForm';
 
 export const WorkspacePage: React.FC = () => {
     const { teamId, channelId } = useParams<{ teamId: string, channelId: string }>();
     const navigate = useNavigate();
     const [sendMessage] = useSendMessageMutation();
     const { data: teamMembers } = useGetTeamMembersQuery(teamId || skipToken);
+    const [scheduleModal, setScheduleModal] = React.useState<{ isOpen: boolean; content: string }>({
+        isOpen: false,
+        content: '',
+    });
 
     if (!teamId || !channelId) {
         return (
@@ -112,13 +117,19 @@ export const WorkspacePage: React.FC = () => {
             <div className="max-w-4xl mx-auto w-full">
                 <MessageComposer 
                     teamMembers={teamMembers || []}
-                    onSend={(html, mentions) => {
-                        sendMessage({
-                            teamId,
-                            channelId,
-                            content: html,
-                            mentions
-                        });
+                    onSend={(html, mentions, options) => {
+                        if (teamId && channelId) {
+                            sendMessage({
+                                teamId,
+                                channelId,
+                                content: html,
+                                mentions,
+                                ...options
+                            });
+                        }
+                    }}
+                    onSchedule={(html) => {
+                        setScheduleModal({ isOpen: true, content: html });
                     }}
                 />
             </div>
@@ -127,6 +138,35 @@ export const WorkspacePage: React.FC = () => {
                 <Zap size={12} className="text-amber-500" />
                 Live Broadcast Node Operational
             </div>
+
+            {/* Modal Overlay for Instant Scheduling from Composer */}
+            <AnimatePresence>
+                {scheduleModal.isOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.5, bounce: 0.1 }}
+                            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden relative border border-slate-100 max-h-[90vh] flex flex-col"
+                        >
+                            <button
+                                onClick={() => setScheduleModal({ isOpen: false, content: '' })}
+                                className="absolute top-5 right-5 z-20 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            >
+                                <X size={16} />
+                            </button>
+                            <div className="overflow-y-auto custom-scrollbar p-1">
+                                <ScheduleMessageForm 
+                                    selectedChannel={{ teamId: teamId || '', channelId: channelId || '' }}
+                                    initialContent={scheduleModal.content}
+                                    onSuccess={() => setScheduleModal({ isOpen: false, content: '' })} 
+                                />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

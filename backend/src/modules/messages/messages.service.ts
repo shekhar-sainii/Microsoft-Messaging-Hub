@@ -17,13 +17,29 @@ export interface SendOptions {
   subject?: string;
   importance?: 'normal' | 'high' | 'urgent';
   mentions?: Mention[];
+  attachments?: { id: string; name: string; url: string; size: number; }[];
 }
 
 export class MessagesService {
   async sendMessage(client: Client, teamId: string, channelId: string, content: string, userId: string, options: SendOptions = {}) {
     return RateLimiter.throttle(userId, async () => {
+        let finalContent = content;
+
+        // Append OneDrive attachments as links if present
+        if (options.attachments?.length) {
+          const linksHtml = options.attachments.map(file => 
+            `<div style="margin-top: 10px; padding: 10px; background: #f3f2f1; border-radius: 4px; border-left: 4px solid #0078d4;">
+              <a href="${file.url}" target="_blank" style="text-decoration: none; color: #0078d4; font-weight: bold;">
+                📄 ${file.name}
+              </a>
+              <span style="font-size: 10px; color: #605e5c; margin-left: 10px;">(${(file.size / 1024).toFixed(0)} KB)</span>
+            </div>`
+          ).join('');
+          finalContent += `<br/>${linksHtml}`;
+        }
+
         const payload: any = {
-          body: { contentType: 'html', content },
+          body: { contentType: 'html', content: finalContent },
           importance: options.importance || 'normal',
         };
 
@@ -122,7 +138,11 @@ export class MessagesService {
 
   async deleteMessage(client: Client, teamId: string, channelId: string, messageId: string, userId: string) {
     return RateLimiter.throttle(userId, async () => {
-        await client.api(`/teams/${teamId}/channels/${channelId}/messages/${messageId}`).delete();
+        try {
+            await client.api(`/teams/${teamId}/channels/${channelId}/messages/${messageId}`).delete();
+        } catch (error: any) {
+            logger.warn('Graph API delete failed, proceeding with local deletion', { error: error.message, messageId });
+        }
         await messageRepository.delete({ messageId });
         await auditRepository.log({ eventType: 'message_deleted', details: `Deleted message ${messageId}`, status: 'success', userId });
     });
@@ -137,7 +157,7 @@ export class MessagesService {
   }
 
   async getSentHistory(userId: string, limit = 50, skip = 0) {
-    return messageRepository.find({ userId });
+    return messageRepository.find({ userId }, { createdAt: -1 }, limit, skip);
   }
 
   async searchHistory(userId: string, query: string) {

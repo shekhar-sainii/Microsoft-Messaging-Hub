@@ -11,11 +11,11 @@ import { HttpStatus } from '../constants';
 export const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
   const publicPaths = [
-    '/webhook/graph', 
+    '/api/webhook',
     '/api/health', 
     '/api/docs', 
-    '/api/bot', 
-    '/api/subscriptions/graph'
+    '/api/bot',
+    '/webhook'
   ];
 
   if (safeMethods.includes(req.method) || publicPaths.some(p => req.path.startsWith(p))) {

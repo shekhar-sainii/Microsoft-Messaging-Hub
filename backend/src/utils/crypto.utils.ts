@@ -65,11 +65,12 @@ export class CryptoUtils {
     }
 
     /**
-     * Helper to get public key for subscription registration.
+     * Helper to get certificate for subscription registration.
+     * Microsoft Graph expects the full certificate (base64-encoded, no headers)
      */
     static getPublicKeyBase64(): string {
-        const publicKeyPath = path.join(__dirname, '../keys/public.pem');
-        const pem = fs.readFileSync(publicKeyPath, 'utf8');
-        return pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\n|\r/g, '');
+        const certPath = path.join(__dirname, '../keys/cert.pem');
+        const pem = fs.readFileSync(certPath, 'utf8');
+        return pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\n|\r/g, '');
     }
 }

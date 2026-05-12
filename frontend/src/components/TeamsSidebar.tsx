@@ -107,25 +107,25 @@ export const TeamsSidebar: React.FC<TeamsSidebarProps> = ({ onChannelSelect, sel
                     <motion.button 
                         whileTap={{ rotate: 180 }}
                         onClick={() => refetch()}
-                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600 transition-all"
+                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-900 hover:text-blue-600 transition-all"
                     >
                         <RefreshCw size={14} />
                     </motion.button>
                 </div>
                 
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 group-focus-within:text-blue-600 transition-colors" size={14} />
                     <input 
                         type="text" 
                         placeholder="Search workspace..." 
-                        className="w-full pl-10 pr-10 py-3 bg-slate-100/50 border border-transparent rounded-xl text-xs font-bold focus:outline-none focus:bg-white focus:border-blue-400/50 transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-10 py-3 bg-slate-100/50 border border-transparent rounded-xl text-xs font-bold focus:outline-none focus:bg-white focus:border-blue-400/50 transition-all placeholder:text-slate-900"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     {searchTerm && (
                         <button 
                             onClick={() => setSearchTerm('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-900 hover:text-slate-600"
                         >
                             <X size={14} />
                         </button>
@@ -255,7 +255,7 @@ const TeamItem = ({ team, index, isExpanded, favoriteChannelIds, onToggle, onTog
                     <p className="text-[11px] font-black truncate tracking-tight text-slate-800">{team.displayName}</p>
                     <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Org</p>
                 </div>
-                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-90 text-blue-600' : 'text-slate-300'}`}>
+                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-90 text-blue-600' : 'text-slate-900'}`}>
                     <ChevronRight size={14} />
                 </div>
             </button>
@@ -276,9 +276,9 @@ const TeamItem = ({ team, index, isExpanded, favoriteChannelIds, onToggle, onTog
                                     <div key={channel.id} className="group/channel flex items-center gap-1 pl-3 pr-1 relative">
                                         <button 
                                             onClick={() => onChannelSelect(team.id, channel.id)}
-                                            className={`flex-1 flex items-center gap-2 py-1.5 px-3 rounded-lg text-left transition-all ${selectedChannelId === channel.id ? 'text-blue-700 bg-blue-50/50 font-black' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold'}`}
+                                            className={`flex-1 flex items-center gap-2 py-1.5 px-3 rounded-lg text-left transition-all ${selectedChannelId === channel.id ? 'text-blue-700 bg-blue-50/50 font-black' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-bold'}`}
                                         >
-                                            <Hash size={12} className={selectedChannelId === channel.id ? 'text-blue-500' : 'text-slate-300'} />
+                                            <Hash size={12} className={selectedChannelId === channel.id ? 'text-blue-500' : 'text-slate-900'} />
                                             <span className="text-[10px] truncate">{channel.displayName}</span>
                                         </button>
                                         <button 
