@@ -47,3 +47,7 @@ backend/test_output.txt
 keys/
 test-results/
 playwright-report/
+BONUS_TESTING.md
+CREDENTIALS_GUIDE.md
+DOCKER_GUIDE.md
+PROJECT_DEEP_DIVE.md
