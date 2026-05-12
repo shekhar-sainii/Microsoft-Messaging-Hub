@@ -54,7 +54,13 @@ app.use(express.json());
 // ── Session Management (Redis) ───────────────────────────────────────────────
 import { RedisStore } from 'connect-redis';
 const sessionRedisClient = config.redis.url 
-    ? createClient({ url: config.redis.url }) 
+    ? createClient({ 
+        url: config.redis.url,
+        socket: (config.redis.url.startsWith('rediss://') || config.redis.url.includes('upstash')) ? {
+            tls: true,
+            rejectUnauthorized: false
+        } : undefined
+      }) 
     : createClient({ socket: { host: config.redis.host, port: config.redis.port } });
 sessionRedisClient.connect().catch(e => logger.error('Session Redis Error', e));
 
