@@ -1,6 +1,13 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+const cleanRedisUrl = (url?: string) => {
+  if (!url) return undefined;
+  // Automatically strip extra CLI params like '--tls -u ' if accidentally pasted
+  const match = url.match(/(rediss?:\/\/[^\s]+)/);
+  return match ? match[1].trim() : url.trim();
+};
+
 export const config = {
   port: process.env.PORT || 3000,
   env: process.env.NODE_ENV || 'development',
@@ -8,7 +15,7 @@ export const config = {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/microsoft-messaging-hub',
   },
   redis: {
-    url: process.env.REDIS_URL,
+    url: cleanRedisUrl(process.env.REDIS_URL),
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD,
