@@ -576,8 +576,8 @@ export const AdminDashboard = () => {
                 message={confirmAction.type === 'retry'
                     ? "Are you sure you want to retry sending this message? This will create a new delivery attempt in Microsoft Teams."
                     : confirmAction.type === 'cancel_schedule'
-                    ? `Are you sure you want to interrupt this automated sequence? ${confirmAction.data?.recurrence !== 'none' ? 'This will completely terminate all future cascading timer intervals and continuous recurrence nodes.' : 'This will immediately purge the pending single task from active memory queues.'}`
-                    : "Are you sure you want to delete this webhook pipeline? You will stop receiving real-time notifications for this resource."}
+                        ? `Are you sure you want to interrupt this automated sequence? ${confirmAction.data?.recurrence !== 'none' ? 'This will completely terminate all future cascading timer intervals and continuous recurrence nodes.' : 'This will immediately purge the pending single task from active memory queues.'}`
+                        : "Are you sure you want to delete this webhook pipeline? You will stop receiving real-time notifications for this resource."}
                 confirmText={confirmAction.type === 'retry' ? "Retry Dispatch" : confirmAction.type === 'cancel_schedule' ? "Confirm Disconnection" : "Delete Pipeline"}
                 cancelText="Cancel"
                 type={confirmAction.type === 'retry' ? "info" : "danger"}
