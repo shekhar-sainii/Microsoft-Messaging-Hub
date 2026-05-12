@@ -3,21 +3,21 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
-import { 
-    Shield, History, CheckCircle2, AlertTriangle, RefreshCw, Webhook, 
-    Activity, BarChart3, Globe, Cpu, Server, Download, Trash2, 
+import {
+    Shield, History, CheckCircle2, AlertTriangle, RefreshCw, Webhook,
+    Activity, BarChart3, Globe, Cpu, Server, Download, Trash2,
     Database, Network, Zap, Clock, ExternalLink, Info, Search, X, Users
 } from 'lucide-react';
-import { 
+import {
     useGetSummaryStatsQuery,
-    useGetMessageStatsQuery, 
-    useGetAuditLogsQuery, 
-    useRetryMessageMutation 
+    useGetMessageStatsQuery,
+    useGetAuditLogsQuery,
+    useRetryMessageMutation
 } from '../../analytics/analyticsApi';
-import { 
-    useGetWebhooksQuery, 
-    useCreateWebhookMutation, 
-    useDeleteWebhookMutation 
+import {
+    useGetWebhooksQuery,
+    useCreateWebhookMutation,
+    useDeleteWebhookMutation
 } from '../webhooksApi';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +55,7 @@ export const AdminDashboard = () => {
 
     const filteredLogs = useMemo(() => {
         if (!logsData) return [];
-        return logsData.filter((log: any) => 
+        return logsData.filter((log: any) =>
             log.eventType?.toLowerCase().includes(debouncedLogSearch.toLowerCase()) ||
             log.details?.toLowerCase().includes(debouncedLogSearch.toLowerCase()) ||
             log.status?.toLowerCase().includes(debouncedLogSearch.toLowerCase())
@@ -143,10 +143,10 @@ export const AdminDashboard = () => {
     return (
         <>
             <div className="w-full space-y-8 pb-20">
-                
+
                 {/* Compact License Warning */}
                 <AnimatePresence>
-                    <motion.div 
+                    <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         className="overflow-hidden"
@@ -313,13 +313,13 @@ export const AdminDashboard = () => {
                                             <p className="text-slate-400 font-bold text-xs">Immutable record of system events.</p>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="flex items-center gap-3 flex-1 md:max-w-md">
                                         <div className="relative flex-1 group">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
-                                            <input 
-                                                type="text" 
-                                                placeholder="Search logs..." 
+                                            <input
+                                                type="text"
+                                                placeholder="Search logs..."
                                                 value={logSearch}
                                                 onChange={(e) => setLogSearch(e.target.value)}
                                                 className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-500 transition-all shadow-sm"
@@ -355,41 +355,41 @@ export const AdminDashboard = () => {
                                             ) : paginatedLogs.length === 0 ? (
                                                 <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 uppercase tracking-widest">No matching logs found</td></tr>
                                             ) : paginatedLogs.map((log: any) => (
-                                            <tr 
-                                                key={log._id} 
-                                                onClick={() => {
-                                                    setSelectedLog(log);
-                                                    setIsLogModalOpen(true);
-                                                }}
-                                                className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                                            >
-                                                <td className="px-8 py-4 uppercase text-slate-700">{log.eventType?.replace('_', ' ')}</td>
-                                                <td className="px-8 py-4 text-slate-500 max-w-xs truncate">{log.details}</td>
-                                                <td className="px-8 py-4">
-                                                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                                        {log.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-4 text-slate-400">{new Date(log.createdAt).toLocaleDateString()}</td>
-                                                <td className="px-8 py-4 text-right">
-                                                    {log.status === 'failure' && (
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleRetry(log);
-                                                            }}
-                                                            className="text-blue-600 hover:underline uppercase text-[9px] font-black"
-                                                        >
-                                                            Retry
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
+                                                <tr
+                                                    key={log._id}
+                                                    onClick={() => {
+                                                        setSelectedLog(log);
+                                                        setIsLogModalOpen(true);
+                                                    }}
+                                                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                                                >
+                                                    <td className="px-8 py-4 uppercase text-slate-700">{log.eventType?.replace('_', ' ')}</td>
+                                                    <td className="px-8 py-4 text-slate-500 max-w-xs truncate">{log.details}</td>
+                                                    <td className="px-8 py-4">
+                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                                            {log.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-4 text-slate-400">{new Date(log.createdAt).toLocaleDateString()}</td>
+                                                    <td className="px-8 py-4 text-right">
+                                                        {log.status === 'failure' && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleRetry(log);
+                                                                }}
+                                                                className="text-blue-600 hover:underline uppercase text-[9px] font-black"
+                                                            >
+                                                                Retry
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
                                             ))}
                                         </tbody>
                                     </table>
-                                    
-                                    <Pagination 
+
+                                    <Pagination
                                         currentPage={currentPage}
                                         totalPages={totalPages}
                                         totalItems={filteredLogs.length}
@@ -407,7 +407,7 @@ export const AdminDashboard = () => {
                                         <h3 className="text-2xl font-black tracking-tight italic uppercase">Tenant Authorization</h3>
                                         <p className="text-indigo-200 text-sm font-medium">Grant admin consent for application permissions across the entire organization.</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
                                             const redirectUri = window.location.origin;
@@ -462,7 +462,7 @@ export const AdminDashboard = () => {
                 onClose={() => setConfirmAction(prev => ({ ...prev, isOpen: false }))}
                 onConfirm={executeAction}
                 title={confirmAction.type === 'retry' ? "Confirm Re-broadcast" : "Decommission Pipeline"}
-                message={confirmAction.type === 'retry' 
+                message={confirmAction.type === 'retry'
                     ? "Are you sure you want to retry sending this message? This will create a new delivery attempt in Microsoft Teams."
                     : "Are you sure you want to delete this webhook pipeline? You will stop receiving real-time notifications for this resource."}
                 confirmText={confirmAction.type === 'retry' ? "Retry Dispatch" : "Delete Pipeline"}
@@ -481,9 +481,8 @@ export const AdminDashboard = () => {
 const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
     <button
         onClick={onClick}
-        className={`px-6 h-full rounded-xl transition-all duration-300 flex items-center gap-2 relative overflow-hidden group ${
-            active ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'
-        }`}
+        className={`px-6 h-full rounded-xl transition-all duration-300 flex items-center gap-2 relative overflow-hidden group ${active ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'
+            }`}
     >
         <div className="relative z-10 flex items-center gap-2">
             <Icon size={16} className={active ? 'text-blue-400' : ''} />

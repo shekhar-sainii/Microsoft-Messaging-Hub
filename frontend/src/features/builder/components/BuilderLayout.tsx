@@ -16,6 +16,7 @@ import { useCreateTemplateMutation, useUpdateTemplateMutation } from '../../temp
 import { SaveTemplateModal } from '../../../components/modals/SaveTemplateModal';
 import { ScheduleMessageForm } from '../../scheduler/components/ScheduleMessageForm';
 import toast from 'react-hot-toast';
+import { useGetTeamsQuery, useGetChannelsQuery } from '../../teams/teamsApi';
 
 type PreviewMode = 'desktop' | 'mobile';
 
@@ -37,6 +38,14 @@ export const BuilderLayout = () => {
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
     const [templateMeta, setTemplateMeta] = useState<{name: string, description: string}>({ name: '', description: '' });
     const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+    const [isDispatchOpen, setIsDispatchOpen] = useState(false);
+    const [selectedTargetTeam, setSelectedTargetTeam] = useState<string | null>(null);
+    const [selectedTargetChannel, setSelectedTargetChannel] = useState<string | null>(null);
+    const [confirmTargetChannel, setConfirmTargetChannel] = useState<{ id: string, name: string } | null>(null);
+    const { data: teamsList, isLoading: isTeamsLoading } = useGetTeamsQuery();
+    const { data: channelsList, isLoading: isChannelsLoading } = useGetChannelsQuery(selectedTargetTeam || '', {
+        skip: !selectedTargetTeam
+    });
     
     const [createTemplate, { isLoading: isCreating }] = useCreateTemplateMutation();
     const [updateTemplate, { isLoading: isUpdating }] = useUpdateTemplateMutation();
@@ -124,26 +133,35 @@ export const BuilderLayout = () => {
         updateCard(newCard);
     };
 
-    const handleSend = async () => {
-        const selectedChannelStr = localStorage.getItem('selectedChannel');
-        const selectedChannel = selectedChannelStr ? JSON.parse(selectedChannelStr) : null;
+    const handleSend = async (customTeamId?: string, customChannelId?: string) => {
+        let tId = customTeamId;
+        let cId = customChannelId;
         
-        if (!selectedChannel) {
-            toast.error('Global Context Missing: Select a channel from the navigator first');
-            return;
+        if (!tId || !cId) {
+            const selectedChannelStr = localStorage.getItem('selectedChannel');
+            const selectedChannel = selectedChannelStr ? JSON.parse(selectedChannelStr) : null;
+            if (!selectedChannel) {
+                toast.error('Global Context Missing: Select a destination team/channel');
+                return;
+            }
+            tId = selectedChannel.teamId;
+            cId = selectedChannel.channelId;
         }
 
         const loadingToast = toast.loading('Syncing card with Teams Node...');
         try {
             const { apiClient } = await import('../../../api/apiClient');
             await apiClient.post('/messages/send', {
-                teamId: selectedChannel.teamId,
-                channelId: selectedChannel.channelId,
+                teamId: tId,
+                channelId: cId,
                 content: '', 
                 isAdaptiveCard: true,
                 cardJson: cardJson
             });
             toast.success('Card Synchronized Successfully', { id: loadingToast });
+            setIsDispatchOpen(false);
+            setConfirmTargetChannel(null);
+            setSelectedTargetChannel(null);
         } catch (err: any) {
             toast.error(`Dispatch Failed: ${err.message}`, { id: loadingToast });
         }
@@ -249,7 +267,7 @@ export const BuilderLayout = () => {
                     </button>
 
                     <button
-                        onClick={handleSend}
+                        onClick={() => setIsDispatchOpen(true)}
                         className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95"
                     >
                         <Send size={14} /> Dispatch
@@ -374,44 +392,90 @@ export const BuilderLayout = () => {
                         </div>
                     </div>
 
-                    {/* Bottom JSON Editor Drawer */}
+                    {/* Premium Immersive Wide Screen JSON Source Schema & Preview Popup Modal */}
                     <AnimatePresence>
                         {isJsonOpen && (
-                            <motion.div 
-                                initial={{ height: 0 }}
-                                animate={{ height: '40%' }}
-                                exit={{ height: 0 }}
-                                className="bg-[#0f172a] border-t border-slate-800 z-20 flex flex-col relative"
-                            >
-                                <div className="px-6 py-2 bg-[#1e293b] flex items-center justify-between border-b border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <Code2 size={14} className="text-blue-400" />
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">JSON Source Schema</span>
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-8 bg-slate-950/80 backdrop-blur-xl">
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    transition={{ type: "spring", duration: 0.5, bounce: 0.05 }}
+                                    className="w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-[2.5rem] shadow-2xl border border-slate-800 flex flex-col overflow-hidden relative"
+                                >
+                                    {/* Modal Top Bar */}
+                                    <div className="px-8 py-4 bg-[#1e293b] flex items-center justify-between border-b border-slate-800">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                                                <Code2 size={16} className="text-blue-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs font-black text-white uppercase tracking-wider italic">JSON Source Schema Workshop</h3>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Parallel Synchronization Active</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${jsonError ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                                                {jsonError ? 'Schema Payload Error' : 'JSON Engine 100% Verified'}
+                                            </div>
+                                            <button 
+                                                onClick={() => setIsJsonOpen(false)}
+                                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-900/30 active:scale-95 flex items-center gap-2"
+                                            >
+                                                Apply & Close Workshop
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button 
-                                        onClick={() => setIsJsonOpen(false)}
-                                        className="text-slate-500 hover:text-white transition-colors"
-                                    >
-                                        <ChevronDown size={18} />
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <JsonEditor 
-                                        value={jsonString} 
-                                        onChange={handleJsonChange} 
-                                        onMount={(editor) => { editorRef.current = editor; }}
-                                    />
-                                </div>
-                            </motion.div>
+
+                                    {/* Split Screen Layout Container */}
+                                    <div className="flex flex-1 overflow-hidden">
+                                        {/* Left Side: Real-Time Auto-Scaling Card Preview */}
+                                        <div className="w-1/2 bg-slate-950 border-r border-slate-800 p-8 flex flex-col overflow-y-auto custom-scrollbar relative">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2.5">
+                                                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" /> Live Rendering Canvas
+                                                </span>
+                                                <span className="text-[9px] font-bold text-slate-600 uppercase font-mono">Output Sandbox</span>
+                                            </div>
+                                            <div className="flex-1 flex items-center justify-center py-4">
+                                                <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-800 transition-all duration-300 hover:border-slate-700">
+                                                    <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Adaptive UI Stream</span>
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase">Teams Client Mirror</span>
+                                                    </div>
+                                                    <div className="p-6 bg-white min-h-[150px]">
+                                                        <CardPreview cardJson={cardJson} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Right Side: High-Performance JSON Editor */}
+                                        <div className="w-1/2 flex flex-col overflow-hidden bg-[#0f172a]">
+                                            <div className="px-6 py-2 bg-slate-900/50 border-b border-slate-800/50 flex items-center justify-between">
+                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest font-mono">Payload Editor</span>
+                                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">UTF-8 String</span>
+                                            </div>
+                                            <div className="flex-1 overflow-hidden">
+                                                <JsonEditor 
+                                                    value={jsonString} 
+                                                    onChange={handleJsonChange} 
+                                                    onMount={(editor) => { editorRef.current = editor; }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            </div>
                         )}
                     </AnimatePresence>
                     
                     {!isJsonOpen && (
                         <button 
                             onClick={() => setIsJsonOpen(true)}
-                            className="absolute bottom-4 right-8 px-4 py-2 bg-slate-900 text-white rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-2xl hover:scale-105 transition-all z-30"
+                            className="absolute bottom-4 right-8 px-5 py-2.5 bg-slate-900 text-white rounded-xl flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-2xl hover:scale-105 transition-all z-30 border border-slate-800"
                         >
-                            <Code2 size={14} /> Open JSON Editor
+                            <Code2 size={14} className="text-blue-400 animate-spin-slow" /> Open JSON Workshop
                         </button>
                     )}
                 </div>
@@ -444,6 +508,157 @@ export const BuilderLayout = () => {
                                     initialContent={JSON.stringify(cardJson)}
                                     onSuccess={() => setIsScheduleOpen(false)} 
                                 />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Premium Step-by-Step Direct Dispatch Selection & Confirmation Popup Overlay */}
+            <AnimatePresence>
+                {isDispatchOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-100 flex flex-col"
+                        >
+                            {/* Card Top Banner */}
+                            <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                                        <Send size={14} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black tracking-tight italic uppercase text-white">Payload Dispatcher</h3>
+                                        <p className="text-indigo-100 text-[10px] font-bold tracking-wider uppercase">Granular Broadcast Pipeline</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => { 
+                                        setIsDispatchOpen(false); 
+                                        setSelectedTargetTeam(null); 
+                                        setSelectedTargetChannel(null);
+                                        setConfirmTargetChannel(null); 
+                                    }}
+                                    className="p-2 text-white/80 hover:text-white rounded-xl bg-white/10 hover:bg-white/20 transition-all"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            {/* Sequential Step Body */}
+                            <div className="p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+                                {/* Step 1: Select Active Organization Team */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                                        Step 1: Target Team
+                                    </label>
+                                    {isTeamsLoading ? (
+                                        <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-400 font-bold text-center">Querying Directory...</div>
+                                    ) : !teamsList?.length ? (
+                                        <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-500 font-bold text-center">No active teams accessible</div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                            {teamsList.map((team: any) => (
+                                                <button
+                                                    key={team.id}
+                                                    onClick={() => {
+                                                        setSelectedTargetTeam(team.id);
+                                                        setSelectedTargetChannel(null);
+                                                        setConfirmTargetChannel(null);
+                                                    }}
+                                                    className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-between border ${selectedTargetTeam === team.id ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-700 hover:bg-slate-50'}`}
+                                                >
+                                                    <span className="truncate pr-2">{team.displayName}</span>
+                                                    {selectedTargetTeam === team.id && <CheckCircle2 size={14} className="text-blue-600 flex-shrink-0" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Step 2: Select Destination Channel */}
+                                <AnimatePresence>
+                                    {selectedTargetTeam && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="space-y-2 overflow-hidden"
+                                        >
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                                                Step 2: Destination Channel
+                                            </label>
+                                            {isChannelsLoading ? (
+                                                <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-400 font-bold text-center">Fetching Streams...</div>
+                                            ) : !channelsList?.length ? (
+                                                <div className="p-3 bg-amber-50 rounded-xl text-xs text-amber-600 font-bold text-center">No active streams discovered</div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                                    {channelsList.map((ch: any) => (
+                                                        <button
+                                                            key={ch.id}
+                                                            onClick={() => {
+                                                                setSelectedTargetChannel(ch.id);
+                                                                setConfirmTargetChannel({ id: ch.id, name: ch.displayName });
+                                                            }}
+                                                            className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-between border ${selectedTargetChannel === ch.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-700 hover:bg-slate-50'}`}
+                                                        >
+                                                            <span className="truncate pr-2">{ch.displayName}</span>
+                                                            <ChevronRight size={14} className={selectedTargetChannel === ch.id ? 'text-indigo-600' : 'text-slate-400'} />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Final Confirmation Prompt Drawer */}
+                                <AnimatePresence>
+                                    {confirmTargetChannel && selectedTargetTeam && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="p-5 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-xl space-y-4"
+                                        >
+                                            <div className="flex gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                                    <AlertTriangle size={14} className="text-amber-400" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-black uppercase tracking-wide text-white">Broadcast Authorization</p>
+                                                    <p className="text-[10px] text-slate-300 font-medium">
+                                                        Release raw payload directly to <span className="text-amber-400 font-bold underline">{confirmTargetChannel.name}</span>?
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pt-1">
+                                                <button
+                                                    onClick={() => setConfirmTargetChannel(null)}
+                                                    className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Cancel ❌
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSend(selectedTargetTeam, confirmTargetChannel.id)}
+                                                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-950 active:scale-95"
+                                                >
+                                                    Send Now 🚀
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            <div className="px-8 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                <span>🔒 Encrypted MS Graph Handshake</span>
+                                <span>v1.4 Spec Core</span>
                             </div>
                         </motion.div>
                     </div>

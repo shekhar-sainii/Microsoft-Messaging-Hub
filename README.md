@@ -68,11 +68,15 @@ graph TB
 - **Graph $batch Utility**: Bundles multiple API calls into single HTTP requests, significantly reducing network latency and improving dashboard responsiveness.
 - **Redis Cache Layer**: GET responses for heavy resources (Teams/Channels) are cached with optimized TTLs to minimize Graph API costs.
 
+### 4. Enterprise UI/UX Masterclass & Design Systems
+- **Parallel Source Schema Workshop**: A magnificent split-screen immersive overlay rendering real-time auto-scaling Adaptive Card mirror outputs perfectly parallel to CodeMirror raw schema syntax workshops.
+- **Sequential Target Pipeline Validation**: High-confidence step-by-step broadcast dialogs dynamically cascading from Target Organizations to Sub-channels, finalized by explicit prompt barriers offering immediate visual **Send vs Cancel** authority cycles.
+
 ---
 
 ## 🌟 Bonus Challenges Completed (+20 Marks)
 
-- [x] **(+5) Multi-tenant Onboarding**: Implemented a **"Grant Tenant Consent"** command center in the Admin Panel. The application dynamically handles any M365 organization directory using the `/common` identity endpoint.
+- [x] **(+5) Multi-tenant Onboarding**: Implemented a **"Grant Tenant Consent"** command center in the Admin Panel. The application dynamically handles any M365 organization directory using the `/common` identity endpoint, and provides an interactive input binding to map specific dev tenant scopes for Single-Tenant registered Azure Apps.
 - [x] **(+4) Outgoing Webhook Receiver**: Built a publicly accessible `/webhook/graph` endpoint that handles the mandatory 10-second validation handshake and processes incoming Teams notifications in real-time.
 - [x] **(+4) Adaptive Cards Action.Submit**: The backend engine is configured to receive and process interaction data from Adaptive Card buttons, enabling bidirectional workflows.
 - [x] **(+4) Playwright E2E Testing**: Includes an automated test suite that simulates the MSAL login flow, performs message dispatches, and verifies delivery in the history logs.
