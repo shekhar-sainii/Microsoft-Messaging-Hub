@@ -95,9 +95,9 @@ export const WorkspacePage: React.FC = () => {
                                 <span className="px-2 py-0.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded text-[8px] font-black uppercase tracking-widest">Active Node</span>
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                             </div>
-                            <h3 className="text-xl font-black tracking-tight leading-none uppercase italic">Communication Channel</h3>
-                            <p className="text-slate-500 font-bold text-[10px] tracking-widest uppercase flex items-center gap-2">
-                                <Globe size={12} />
+                            <h3 className="text-xl font-black tracking-tight leading-none uppercase italic text-white">Communication Channel</h3>
+                            <p className="text-slate-300 font-bold text-[10px] tracking-widest uppercase flex items-center gap-2">
+                                <Globe size={12} className="text-blue-400" />
                                 Microsoft Graph Sync Operational
                             </p>
                         </div>

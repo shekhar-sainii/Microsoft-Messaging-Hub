@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { Calendar, Clock, RefreshCw, Send, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCreateScheduleMutation } from '../schedulerApi';
+import { useGetTeamsQuery, useGetChannelsQuery } from '../../teams/teamsApi';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 
 // ── Zod Schema ────────────────────────────────────────────────────────────────
 const scheduleSchema = z.object({
@@ -34,6 +36,7 @@ export const ScheduleMessageForm: React.FC<ScheduleMessageFormProps> = ({
     initialContent = ''
 }) => {
     const [createSchedule, { isLoading: isScheduling }] = useCreateScheduleMutation();
+    const { data: teams } = useGetTeamsQuery();
 
     // Safely auto-detect last visited channel from persistence if no prop provided
     const getCachedChannel = () => {
@@ -65,6 +68,9 @@ export const ScheduleMessageForm: React.FC<ScheduleMessageFormProps> = ({
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
     });
+
+    const selectedTeamId = watch('teamId');
+    const { data: channels, isLoading: channelsLoading } = useGetChannelsQuery(selectedTeamId || skipToken);
 
     // Sync content if initialContent changes dynamically
     useEffect(() => {
@@ -113,26 +119,40 @@ export const ScheduleMessageForm: React.FC<ScheduleMessageFormProps> = ({
                 )}
             </div>
 
-            {/* Team ID */}
+            {/* Target Selectors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Team Dropdown */}
                 <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Team ID</label>
-                    <input
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Organization</label>
+                    <select
                         {...register('teamId')}
-                        placeholder="e.g. 7a8d66fa-..."
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500 outline-none placeholder:text-slate-300 bg-white"
-                    />
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500 outline-none bg-white text-slate-800"
+                    >
+                        <option value="">-- Select Target Organization --</option>
+                        {teams?.map((team: any) => (
+                            <option key={team.id} value={team.id}>
+                                {team.displayName}
+                            </option>
+                        ))}
+                    </select>
                     {errors.teamId && <p className="text-[9px] text-red-500 font-bold mt-1">{errors.teamId.message}</p>}
                 </div>
 
-                {/* Channel ID */}
+                {/* Channel Dropdown */}
                 <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Channel ID</label>
-                    <input
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Channel</label>
+                    <select
                         {...register('channelId')}
-                        placeholder="e.g. 19:b3UK..."
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500 outline-none placeholder:text-slate-300 bg-white"
-                    />
+                        disabled={!selectedTeamId || channelsLoading}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500 outline-none bg-white text-slate-800 disabled:opacity-50"
+                    >
+                        <option value="">-- Select Target Channel --</option>
+                        {channels?.map((channel: any) => (
+                            <option key={channel.id} value={channel.id}>
+                                #{channel.displayName}
+                            </option>
+                        ))}
+                    </select>
                     {errors.channelId && <p className="text-[9px] text-red-500 font-bold mt-1">{errors.channelId.message}</p>}
                 </div>
             </div>
