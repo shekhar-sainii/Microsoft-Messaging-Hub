@@ -25,14 +25,10 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Create keys directory and copy certs for crypto utils
-RUN mkdir -p dist/keys
-COPY certs/public.pem dist/keys/public.pem
-COPY certs/private.pem dist/keys/private.pem
-COPY certs/cert.pem dist/keys/cert.pem
-
-# Copy cert files (for direct access if needed)
-COPY certs/ ./certs/
+# Create keys directory and copy certs conditionally using wildcard matching
+RUN mkdir -p dist/keys certs
+COPY certs* ./certs/
+RUN cp -r certs/* dist/keys/ 2>/dev/null || true
 
 EXPOSE 3000
 
