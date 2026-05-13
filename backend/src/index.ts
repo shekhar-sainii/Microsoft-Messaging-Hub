@@ -98,6 +98,16 @@ startMessageWorker();
 startWebhookWorker();
 
 // ── Routes ───────────────────────────────────────────────────────────────────
+// Universal Top-Level Webhook Validation Handshake Interceptor
+// Directly intercept Microsoft Graph subscription validation probes at the top-level
+// to bypass complex router proxy layers, nested path prefixes, or sub-router mismatch rules.
+app.post(['/api/webhook/graph', '/api/subscriptions/graph', '/webhook/graph', '/graph'], (req, res, next) => {
+    if (req.query && req.query.validationToken) {
+        return res.status(200).set('Content-Type', 'text/plain').send(req.query.validationToken as string);
+    }
+    next();
+});
+
 app.use('/api', apiRoutes);
 
 // Swagger Documentation
