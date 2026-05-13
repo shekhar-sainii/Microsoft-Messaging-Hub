@@ -42,9 +42,20 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: config.env === 'production'
-    ? [process.env.FRONTEND_URL || 'http://localhost', 'http://localhost:80']
-    : ['http://localhost:5173', 'http://localhost', 'http://localhost:80'],
+  origin: (origin, callback) => {
+      // Allow server-to-server calls or local test tools
+      if (!origin) return callback(null, true);
+      // Resiliently whitelist Vercel edge CDN, local endpoints, and specific ENV mappings
+      if (
+          origin.includes('localhost') || 
+          origin.includes('vercel.app') || 
+          origin.includes('render.com') ||
+          (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL)
+      ) {
+          return callback(null, true);
+      }
+      return callback(new Error('CORS Policy Rejection'), false);
+  },
   credentials: true,
 }));
 
