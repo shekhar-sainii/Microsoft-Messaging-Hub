@@ -17,7 +17,8 @@ export class AuthController {
         maxAge: 24 * 60 * 60 * 1000
       });
 
-      return ApiResponse.success(res, result.user, ResponseMessages.AUTH_SUCCESS);
+      const userObj = result.user.toObject ? result.user.toObject() : result.user;
+      return ApiResponse.success(res, { ...userObj, sessionToken: result.sessionToken }, ResponseMessages.AUTH_SUCCESS);
     } catch (error: any) {
       return ApiResponse.error(res, error, HttpStatus.UNAUTHORIZED);
     }
