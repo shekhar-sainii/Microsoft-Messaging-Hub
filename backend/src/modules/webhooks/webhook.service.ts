@@ -18,9 +18,14 @@ export class WebhookService {
     if (!appToken) throw new Error('Could not obtain application token for subscription');
     const appClient = createGraphClient(appToken);
 
-    // Robust path auto-corrector: ensure notification target hits the mounted router path
-    // regardless of whether WEBHOOK_URL ends with root domain, /api, or /api/webhook
-    const normalizedBase = config.webhook.url.replace(/\/+$/, '').replace(/\/api(\/webhook)?$/, '');
+    // Robust absolute domain fallback wrapper: Microsoft Graph strictly rejects relative URLs
+    // or unroutable endpoints. If WEBHOOK_URL is missing from cloud container definitions,
+    // default securely to the established production live backend instance.
+    let rootTargetDomain = config.webhook.url || process.env.WEBHOOK_URL || '';
+    if (!rootTargetDomain || !rootTargetDomain.startsWith('http')) {
+        rootTargetDomain = 'https://microsoft-messaging-hub.onrender.com';
+    }
+    const normalizedBase = rootTargetDomain.replace(/\/+$/, '').replace(/\/api(\/webhook)?$/, '');
     const notificationTargetUrl = `${normalizedBase}/api/webhook/graph`;
 
     const subscriptionPayload = {
