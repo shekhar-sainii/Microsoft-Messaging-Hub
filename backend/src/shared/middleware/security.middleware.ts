@@ -45,8 +45,8 @@ export const setCsrfToken = (req: express.Request, res: express.Response, next: 
     const token = crypto.randomBytes(32).toString('hex');
     res.cookie('csrf-token', token, {
       httpOnly: false,
-      sameSite: 'lax',
-      secure: config.env === 'production',
+      secure: true,
+      sameSite: config.env === 'production' ? 'none' : 'lax',
     });
   }
   next();
