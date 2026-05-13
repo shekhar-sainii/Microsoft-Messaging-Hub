@@ -35,8 +35,16 @@ Authorization: Bearer <session_token>
   },
   servers: [
     {
+      url: process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL ? `${process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL}/api` : '/api',
+      description: 'Current Environment API Base (Auto-Detected Origin)',
+    },
+    {
+      url: 'https://microsoft-messaging-hub-backend.onrender.com/api',
+      description: 'Production Cloud Instance Base',
+    },
+    {
       url: 'http://localhost:3000/api',
-      description: 'Local Development Server',
+      description: 'Local Host Sandbox Environment',
     },
   ],
   components: {

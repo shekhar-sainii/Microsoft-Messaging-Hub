@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
-import { HttpStatus } from '../../shared/constants';
+import { HttpStatus, ResponseMessages } from '../../shared/constants';
+import { ApiResponse } from '../../shared/ApiResponse';
 
 /**
  * Outgoing Webhook Bot Controller
@@ -113,6 +114,45 @@ export class BotController {
           type: 'message',
           text: `Action received: ${JSON.stringify(value)}`
         });
+    }
+  }
+
+  /**
+   * Management Methods: Retrieve active Bot parameters.
+   */
+  async getConfig(_req: Request, res: Response) {
+    try {
+      const isConfigured = !!config.teamsWebhookToken;
+      const maskedToken = isConfigured ? `${config.teamsWebhookToken.slice(0, 4)}...${config.teamsWebhookToken.slice(-4)}` : '';
+      return ApiResponse.success(res, {
+        isConfigured,
+        maskedToken,
+        webhookUrl: config.webhook.url
+      }, ResponseMessages.FETCHED);
+    } catch (error: any) {
+      return ApiResponse.error(res, error);
+    }
+  }
+
+  /**
+   * Management Methods: Update active Bot parameters dynamically.
+   */
+  async updateConfig(req: Request, res: Response) {
+    try {
+      const { token } = req.body;
+      if (typeof token !== 'string') {
+        throw new Error('Outgoing Webhook Token must be provided as a string');
+      }
+
+      config.teamsWebhookToken = token.trim();
+      logger.info('Microsoft Teams Outgoing Webhook token updated dynamically');
+
+      return ApiResponse.success(res, {
+        isConfigured: !!config.teamsWebhookToken,
+        maskedToken: config.teamsWebhookToken ? `${config.teamsWebhookToken.slice(0, 4)}...${config.teamsWebhookToken.slice(-4)}` : ''
+      }, ResponseMessages.UPDATED);
+    } catch (error: any) {
+      return ApiResponse.error(res, error);
     }
   }
 }

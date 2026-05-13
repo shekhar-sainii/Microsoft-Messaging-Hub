@@ -6,7 +6,8 @@ import {
 import {
     Shield, History, CheckCircle2, AlertTriangle, RefreshCw, Webhook,
     Activity, BarChart3, Globe, Cpu, Server, Download, Trash2,
-    Database, Network, Zap, Clock, ExternalLink, Info, Search, X, Users
+    Database, Network, Zap, Clock, ExternalLink, Info, Search, X, Users,
+    Bot, MessageSquare, Send, Key, Copy, Check
 } from 'lucide-react';
 import {
     useGetSummaryStatsQuery,
@@ -31,9 +32,103 @@ import { UserManagement } from './UserManagement';
 import { Pagination } from '../../../components/common/Pagination';
 import toast from 'react-hot-toast';
 
-type AdminTab = 'infrastructure' | 'analytics' | 'logs' | 'webhooks' | 'users' | 'scheduler';
+type AdminTab = 'infrastructure' | 'analytics' | 'logs' | 'webhooks' | 'users' | 'scheduler' | 'bot';
 
 export const AdminDashboard = () => {
+    // Bot Hub Dynamic States
+    const [botConfig, setBotConfig] = useState<{ isConfigured: boolean; maskedToken: string; webhookUrl: string }>({ isConfigured: false, maskedToken: '', webhookUrl: '' });
+    const [botTokenInput, setBotTokenInput] = useState('');
+    const [isSavingToken, setIsSavingToken] = useState(false);
+    const [copiedUrl, setCopiedUrl] = useState(false);
+    const [simulatorInput, setSimulatorInput] = useState('');
+    const [simulatorMessages, setSimulatorMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
+        { sender: 'bot', text: '👋 Welcome to the interactive Hub simulation shell! Try dispatching `@Hub status` or `@Hub help` to inspect direct execution replies.', time: new Date().toLocaleTimeString() }
+    ]);
+
+    React.useEffect(() => {
+        const fetchBotConfig = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/bot/config', {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        setBotConfig(data.data);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to resolve active bot configuration metadata', err);
+            }
+        };
+        fetchBotConfig();
+    }, []);
+
+    const handleUpdateBotToken = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!botTokenInput.trim()) {
+            toast.error('Token value cannot be empty');
+            return;
+        }
+        setIsSavingToken(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/bot/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ token: botTokenInput })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setBotConfig(prev => ({ ...prev, isConfigured: data.data.isConfigured, maskedToken: data.data.maskedToken }));
+                setBotTokenInput('');
+                toast.success('Outgoing Webhook Token assigned successfully');
+            } else {
+                toast.error(data.message || 'Failed to update outgoing webhook key');
+            }
+        } catch (err) {
+            toast.error('Network connection interrupt saving bot target parameters');
+        } finally {
+            setIsSavingToken(false);
+        }
+    };
+
+    const handleSendSimulatorCommand = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!simulatorInput.trim()) return;
+        const userMsg = simulatorInput;
+        setSimulatorInput('');
+        setSimulatorMessages(prev => [...prev, { sender: 'user', text: userMsg, time: new Date().toLocaleTimeString() }]);
+
+        try {
+            const res = await fetch('/api/bot/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: userMsg,
+                    from: { id: 'sim-user', name: 'Admin Console Simulator' },
+                    channelId: 'dashboard-sim-channel'
+                })
+            });
+            const data = await res.json();
+            setSimulatorMessages(prev => [...prev, {
+                sender: 'bot',
+                text: data.text || JSON.stringify(data),
+                time: new Date().toLocaleTimeString()
+            }]);
+        } catch (err) {
+            setSimulatorMessages(prev => [...prev, {
+                sender: 'bot',
+                text: '❌ Connection error: Unable to handshake with bot relay controller.',
+                time: new Date().toLocaleTimeString()
+            }]);
+        }
+    };
+
     const { data: statsData, isLoading: statsLoading } = useGetMessageStatsQuery();
     const { data: summaryStats, isLoading: summaryLoading } = useGetSummaryStatsQuery();
     const { data: logsData, isLoading: logsLoading } = useGetAuditLogsQuery({ limit: 100, skip: 0 });
@@ -209,6 +304,7 @@ export const AdminDashboard = () => {
                         <TabButton active={activeTab === 'webhooks'} onClick={() => setActiveTab('webhooks')} icon={Webhook} label="Hooks" />
                         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="Users" />
                         <TabButton active={activeTab === 'scheduler'} onClick={() => setActiveTab('scheduler')} icon={Clock} label="Scheduler" />
+                        <TabButton active={activeTab === 'bot'} onClick={() => setActiveTab('bot')} icon={Bot} label="Bot Hub" />
                     </div>
                 </div>
 
@@ -562,6 +658,161 @@ export const AdminDashboard = () => {
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        )}
+                        {activeTab === 'bot' && (
+                            <div className="space-y-6">
+                                {/* Top Explanation Card */}
+                                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
+                                    <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
+                                    <div className="max-w-3xl space-y-4 relative z-10">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-500/30">
+                                            <Bot size={12} />
+                                            Two-Way Outgoing Relay Hub
+                                        </div>
+                                        <h3 className="text-2xl font-black tracking-tight">MICROSOFT TEAMS BOT CENTER</h3>
+                                        <p className="text-slate-300 text-xs leading-relaxed font-medium max-w-2xl">
+                                            Enable two-way communications by binding this application to a Microsoft Teams Outgoing Webhook. 
+                                            This permits remote server state queries directly via inline mentions (`@Hub status`) alongside instant Adaptive Card submit responses.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* Setup Guide Container */}
+                                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+                                        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xs">1</div>
+                                            <div>
+                                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight">Registration Guide</h4>
+                                                <span className="text-[10px] text-slate-400 font-bold block">Target payload URL mappings</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3 text-[11px] text-slate-600 font-medium">
+                                            <p>Navigate to your Microsoft Teams Client channel or team management dashboard and select <b>Manage Team &gt; Apps &gt; Create Outgoing Webhook</b>.</p>
+                                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Callback Payload URL</span>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        readOnly 
+                                                        value={(() => {
+                                                            if (botConfig.webhookUrl) return `${botConfig.webhookUrl.split('/api/')[0]}/api/bot/command`;
+                                                            const viteBase = import.meta.env.VITE_API_BASE_URL;
+                                                            if (viteBase && typeof viteBase === 'string' && viteBase.startsWith('http')) {
+                                                                return `${viteBase.split('/api')[0]}/api/bot/command`;
+                                                            }
+                                                            return `${window.location.origin.includes('localhost') ? 'https://<your-render-backend-url>' : window.location.origin}/api/bot/command`;
+                                                        })()}
+                                                        className="bg-white px-2 py-1 rounded border border-slate-200 text-[10px] font-mono text-slate-700 w-full select-all"
+                                                    />
+                                                    <button 
+                                                        onClick={() => {
+                                                            let target = '';
+                                                            if (botConfig.webhookUrl) {
+                                                                target = `${botConfig.webhookUrl.split('/api/')[0]}/api/bot/command`;
+                                                            } else {
+                                                                const viteBase = import.meta.env.VITE_API_BASE_URL;
+                                                                if (viteBase && typeof viteBase === 'string' && viteBase.startsWith('http')) {
+                                                                    target = `${viteBase.split('/api')[0]}/api/bot/command`;
+                                                                } else {
+                                                                    target = `${window.location.origin.includes('localhost') ? 'https://<your-render-backend-url>' : window.location.origin}/api/bot/command`;
+                                                                }
+                                                            }
+                                                            navigator.clipboard.writeText(target);
+                                                            setCopiedUrl(true);
+                                                            setTimeout(() => setCopiedUrl(false), 2000);
+                                                            toast.success('Payload URL copied to clipboard');
+                                                        }}
+                                                        className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"
+                                                        title="Copy Payload URL"
+                                                    >
+                                                        {copiedUrl ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400">Copy the generated Base64 Security Token provided by Teams upon submission and register it securely below.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Token Locker Container */}
+                                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+                                        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs">2</div>
+                                                <div>
+                                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight">Security Token Locker</h4>
+                                                    <span className="text-[10px] text-slate-400 font-bold block">HMAC verification validation</span>
+                                                </div>
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${botConfig.isConfigured ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                {botConfig.isConfigured ? 'Active' : 'Missing'}
+                                            </span>
+                                        </div>
+
+                                        <form onSubmit={handleUpdateBotToken} className="space-y-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">HMAC Security Key</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="password"
+                                                        value={botTokenInput}
+                                                        onChange={(e) => setBotTokenInput(e.target.value)}
+                                                        placeholder={botConfig.maskedToken ? `Active: ${botConfig.maskedToken}` : "Paste Base64 token e.g. aBcD123XyZ..."}
+                                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                    />
+                                                    <Key size={12} className="absolute right-3 top-3 text-slate-400" />
+                                                </div>
+                                                <span className="text-[9px] text-slate-400 block">Overwrites volatile memory mapping securely</span>
+                                            </div>
+
+                                            <button 
+                                                type="submit"
+                                                disabled={isSavingToken}
+                                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-indigo-600/10"
+                                            >
+                                                {isSavingToken ? 'Applying mapping...' : 'Assign HMAC Key'}
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    {/* Simulator Interface Container */}
+                                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col h-[320px]">
+                                        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 flex-shrink-0">
+                                            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black text-xs">3</div>
+                                            <div>
+                                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight">Interactive Hub Shell</h4>
+                                                <span className="text-[10px] text-slate-400 font-bold block">Simulated local runtime relay client</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 overflow-y-auto space-y-2.5 py-3 pr-1 text-[11px] font-medium scrollbar-thin">
+                                            {simulatorMessages.map((msg, idx) => (
+                                                <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                                                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-br-none font-mono text-[10px]' : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-bl-none whitespace-pre-wrap'}`}>
+                                                        {msg.text}
+                                                    </div>
+                                                    <span className="text-[8px] text-slate-400 font-bold tracking-widest mt-0.5 px-1 uppercase">{msg.sender} • {msg.time}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <form onSubmit={handleSendSimulatorCommand} className="flex items-center gap-2 pt-3 border-t border-slate-100 flex-shrink-0">
+                                            <input 
+                                                value={simulatorInput}
+                                                onChange={(e) => setSimulatorInput(e.target.value)}
+                                                placeholder="Type @Hub status or command..."
+                                                className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                                            />
+                                            <button 
+                                                type="submit"
+                                                className="p-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all"
+                                                title="Dispatch Simulated Payload"
+                                            >
+                                                <Send size={12} />
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         )}
