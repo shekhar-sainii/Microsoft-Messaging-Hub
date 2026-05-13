@@ -13,10 +13,10 @@ export class TemplateService {
 
   async listTemplates(userId: string) {
     const targetUserId = userId || 'default_tenant_user';
-    let records = await templateRepository.findByUserId(targetUserId);
-
-    // Automatic DB Populator: seed the 5 premium templates into MongoDB if empty
-    if (!records || records.length === 0) {
+    
+    // Step 1: Ensure system-wide prebuilt templates exist persistently in MongoDB
+    let systemRecords = await templateRepository.findByUserId('system');
+    if (!systemRecords || systemRecords.length === 0) {
       const PREBUILT_TEMPLATES = [
         {
           name: '📢 Enterprise Broadcast',
@@ -172,17 +172,21 @@ export class TemplateService {
 
       for (const t of PREBUILT_TEMPLATES) {
         await templateRepository.create({
-          userId: targetUserId,
+          userId: 'system',
           name: t.name,
           content: t.content,
           description: t.description,
           type: t.type
         } as any);
       }
-      records = await templateRepository.findByUserId(targetUserId);
+      systemRecords = await templateRepository.findByUserId('system');
     }
 
-    return records;
+    // Step 2: Retrieve current logged-in user's custom templates
+    const userRecords = targetUserId !== 'system' ? await templateRepository.findByUserId(targetUserId) : [];
+
+    // Combine systemic defaults alongside user customizations unconditionally
+    return [...(systemRecords || []), ...(userRecords || [])];
   }
 
   async updateTemplate(userId: string, id: string, data: any) {
