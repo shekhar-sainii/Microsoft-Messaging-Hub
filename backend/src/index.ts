@@ -23,6 +23,18 @@ import { startWebhookWorker } from './modules/webhooks/webhook.worker';
 import { webhookService } from './modules/webhooks/webhook.service';
 
 const app = express();
+
+// Universal Top-Level Webhook Validation Handshake Interceptor
+// Mounted at the VERY highest level before CORS filters, JSON body parsers, or Helmet policies
+// to guarantee that Microsoft Graph validation probes (validationToken) are unconditionally answered
+// with HTTP 200 plain text regardless of incoming request method, path aliases, or external origin headers.
+app.use((req, res, next) => {
+    if (req.query && req.query.validationToken) {
+        return res.status(200).set('Content-Type', 'text/plain').send(req.query.validationToken as string);
+    }
+    next();
+});
+
 const httpServer = createServer(app);
 
 // ── Security & Core Middleware ───────────────────────────────────────────────
@@ -50,6 +62,7 @@ app.use(cors({
           origin.includes('localhost') || 
           origin.includes('vercel.app') || 
           origin.includes('render.com') ||
+          origin.includes('graph.microsoft.com') ||
           (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL)
       ) {
           return callback(null, true);
@@ -98,16 +111,6 @@ startMessageWorker();
 startWebhookWorker();
 
 // ── Routes ───────────────────────────────────────────────────────────────────
-// Universal Top-Level Webhook Validation Handshake Interceptor
-// Directly intercept Microsoft Graph subscription validation probes at the top-level
-// to bypass complex router proxy layers, nested path prefixes, or sub-router mismatch rules.
-app.post(['/api/webhook/graph', '/api/subscriptions/graph', '/webhook/graph', '/graph'], (req, res, next) => {
-    if (req.query && req.query.validationToken) {
-        return res.status(200).set('Content-Type', 'text/plain').send(req.query.validationToken as string);
-    }
-    next();
-});
-
 app.use('/api', apiRoutes);
 
 // Swagger Documentation
