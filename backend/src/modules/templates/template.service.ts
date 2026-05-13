@@ -16,7 +16,9 @@ export class TemplateService {
     
     // Step 1: Ensure system-wide prebuilt templates exist persistently in MongoDB
     let systemRecords = await templateRepository.findByUserId('system');
-    if (!systemRecords || systemRecords.length === 0) {
+    const isPremiumSeeded = await templateRepository.findOne({ name: '📢 Enterprise Broadcast' });
+    
+    if (!isPremiumSeeded) {
       const PREBUILT_TEMPLATES = [
         {
           name: '📢 Enterprise Broadcast',
