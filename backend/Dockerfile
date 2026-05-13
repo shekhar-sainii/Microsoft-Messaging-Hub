@@ -24,6 +24,8 @@ RUN npm install --omit=dev && npm cache clean --force
 
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
+# Copy source schemas ensuring complete JSDoc OpenAPI parsing block availability at runtime
+COPY --from=builder /app/src/docs ./src/docs
 
 # Create keys directory and copy certs conditionally using wildcard matching
 RUN mkdir -p dist/keys certs

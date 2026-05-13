@@ -119,6 +119,7 @@ templateService.listTemplates('system').catch(err => logger.error('Startup Templ
 app.use('/api', apiRoutes);
 
 // Swagger Documentation
+app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'Messaging Hub — API Docs',
   customCss: '.swagger-ui .topbar { background: #0f172a; }',

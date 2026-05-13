@@ -67,6 +67,9 @@ const options: swaggerJsdoc.Options = {
     path.join(__dirname, 'swagger/*.doc.{ts,js}'),
     path.join(__dirname, 'schemas/*.{ts,js}'),
     path.join(__dirname, '../index.{ts,js}'),
+    // Fallback production container absolute mapping paths ensuring raw JSDoc parsing resolution:
+    path.resolve(__dirname, '../../src/docs/swagger/*.doc.{ts,js}'),
+    path.resolve(__dirname, '../../src/docs/schemas/*.{ts,js}'),
   ],
 };
 
