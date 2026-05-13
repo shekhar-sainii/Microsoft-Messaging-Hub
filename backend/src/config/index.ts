@@ -5,7 +5,14 @@ const cleanRedisUrl = (url?: string) => {
   if (!url) return undefined;
   // Automatically strip extra CLI params like '--tls -u ' if accidentally pasted
   const match = url.match(/(rediss?:\/\/[^\s]+)/);
-  return match ? match[1].trim() : url.trim();
+  let clean = match ? match[1].trim() : url.trim();
+  
+  // node-redis v4 strict validation check: if URL targets a secure provider (Upstash/Render)
+  // but starts with plain redis://, automatically rewrite protocol to rediss://
+  if (clean.startsWith('redis://') && (clean.includes('upstash') || clean.includes('render'))) {
+      clean = clean.replace('redis://', 'rediss://');
+  }
+  return clean;
 };
 
 export const config = {
