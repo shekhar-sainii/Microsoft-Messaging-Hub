@@ -26,6 +26,12 @@ export const csrfProtection = (req: express.Request, res: express.Response, next
     return next();
   }
 
+  // Stateless API Bypass: requests powered by custom Authorization Bearer JWT headers
+  // are natively immune to CSRF riding attacks because external origins cannot attach them.
+  if (req.headers.authorization?.startsWith('Bearer ')) {
+    return next();
+  }
+
   const csrfCookie = req.cookies?.['csrf-token'];
   const csrfHeader = req.headers['x-csrf-token'];
 
