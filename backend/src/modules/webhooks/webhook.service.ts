@@ -18,9 +18,14 @@ export class WebhookService {
     if (!appToken) throw new Error('Could not obtain application token for subscription');
     const appClient = createGraphClient(appToken);
 
+    // Robust path auto-corrector: ensure notification target hits the mounted router path
+    // regardless of whether WEBHOOK_URL ends with root domain, /api, or /api/webhook
+    const normalizedBase = config.webhook.url.replace(/\/+$/, '').replace(/\/api(\/webhook)?$/, '');
+    const notificationTargetUrl = `${normalizedBase}/api/webhook/graph`;
+
     const subscriptionPayload = {
       changeType: 'created,updated',
-      notificationUrl: `${config.webhook.url}/graph`,
+      notificationUrl: notificationTargetUrl,
       resource: '/teams/getAllMessages',
       expirationDateTime: expirationDateTime.toISOString(),
       clientState: config.webhook.clientState,
