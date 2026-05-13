@@ -70,7 +70,8 @@ export class CryptoUtils {
      */
     static getPublicKeyBase64(): string {
         const certPath = path.join(__dirname, '../keys/cert.pem');
-        const pem = fs.readFileSync(certPath, 'utf8');
-        return pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\n|\r/g, '');
+        const fallbackPath = path.join(__dirname, '../keys/public.pem');
+        const pem = fs.existsSync(certPath) ? fs.readFileSync(certPath, 'utf8') : fs.readFileSync(fallbackPath, 'utf8');
+        return pem.replace(/-----BEGIN (PUBLIC KEY|CERTIFICATE)-----|-----END (PUBLIC KEY|CERTIFICATE)-----|\n|\r/g, '');
     }
 }
