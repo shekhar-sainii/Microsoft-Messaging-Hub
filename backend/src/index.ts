@@ -21,6 +21,7 @@ import apiRoutes from './routes';
 import { startMessageWorker } from './modules/scheduler/workers/message.worker';
 import { startWebhookWorker } from './modules/webhooks/webhook.worker';
 import { webhookService } from './modules/webhooks/webhook.service';
+import { templateService } from './modules/templates/template.service';
 
 const app = express();
 
@@ -109,6 +110,10 @@ app.use(csrfProtection);
 socketServer.initialize(httpServer);
 startMessageWorker();
 startWebhookWorker();
+
+// Unconditional Server Startup DB Bootstrapper: Populates universal systemic template catalogs
+// into live persistent MongoDB collections directly during primary server boot routines.
+templateService.listTemplates('system').catch(err => logger.error('Startup Template Seed Error', err));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api', apiRoutes);
