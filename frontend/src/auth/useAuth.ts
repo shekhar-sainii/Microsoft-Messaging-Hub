@@ -47,7 +47,11 @@ export const useAuth = () => {
             );
 
             // Correct path: ApiResponse.data contains the user object directly
-            setUser(backendResponse.data.data);
+            const userDataPayload = backendResponse.data.data;
+            if (userDataPayload?.sessionToken) {
+                localStorage.setItem('session_token', userDataPayload.sessionToken);
+            }
+            setUser(userDataPayload);
             setIsAuthenticated(true);
             syncedAccountId.current = accountId;
         } catch (error: any) {
@@ -116,6 +120,7 @@ export const useAuth = () => {
         } catch (_) {
             // proceed regardless
         }
+        localStorage.removeItem('session_token');
         syncedAccountId.current = null;
         instance.logoutRedirect();
     };

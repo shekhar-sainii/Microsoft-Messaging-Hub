@@ -25,12 +25,18 @@ const getCsrfToken = (): string | null => {
     return match ? decodeURIComponent(match[1]) : null;
 };
 
-// Request interceptor: attach CSRF token header
+// Request interceptor: attach CSRF token and fallback Authorization Bearer header
 apiClient.interceptors.request.use(
     (config) => {
         const csrf = getCsrfToken();
         if (csrf) {
             config.headers['X-CSRF-Token'] = csrf;
+        }
+        // Stateless fallback wrapper: if SameSite cookies are dropped by browser policies,
+        // attach the serialized JWT explicitly
+        const sessionToken = localStorage.getItem('session_token');
+        if (sessionToken) {
+            config.headers.Authorization = `Bearer ${sessionToken}`;
         }
         return config;
     },
