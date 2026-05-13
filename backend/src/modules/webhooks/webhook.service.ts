@@ -93,6 +93,13 @@ export class WebhookService {
     const sub = await webhookRepository.findBySubscriptionId(subscriptionId);
     if (!sub || !sub.active) return;
 
+    // Microsoft Graph explicitly defines /teams/getAllMessages as a non-composable function.
+    // Consequently, appending nested path segments like /delta is structurally rejected by the SDK.
+    if (sub.resource && sub.resource.includes('getAllMessages')) {
+        logger.info(`Subscription ${subscriptionId} targets non-composable stream hub; delta catches sync natively via active webhooks.`);
+        return;
+    }
+
     let url = sub.deltaLink || `${sub.resource}/delta`;
     
     try {
