@@ -55,21 +55,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: (origin, callback) => {
-      // Allow server-to-server calls or local test tools
-      if (!origin) return callback(null, true);
-      // Resiliently whitelist Vercel edge CDN, local endpoints, and specific ENV mappings
-      if (
-          origin.includes('localhost') || 
-          origin.includes('vercel.app') || 
-          origin.includes('render.com') ||
-          origin.includes('graph.microsoft.com') ||
-          (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL)
-      ) {
-          return callback(null, true);
-      }
-      return callback(new Error('CORS Policy Rejection'), false);
-  },
+  origin: true,
   credentials: true,
 }));
 

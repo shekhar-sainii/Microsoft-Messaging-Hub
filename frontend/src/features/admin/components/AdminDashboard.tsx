@@ -45,11 +45,20 @@ export const AdminDashboard = () => {
         { sender: 'bot', text: '👋 Welcome to the interactive Hub simulation shell! Try dispatching `@Hub status` or `@Hub help` to inspect direct execution replies.', time: new Date().toLocaleTimeString() }
     ]);
 
+    const getApiUrl = (path: string) => {
+        const base = import.meta.env.VITE_API_BASE_URL;
+        if (base && typeof base === 'string' && base.startsWith('http')) {
+            return `${base.replace(/\/$/, '')}${path.replace(/^\/api/, '')}`;
+        }
+        return path;
+    };
+
     React.useEffect(() => {
         const fetchBotConfig = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const res = await fetch('/api/bot/config', {
+                const res = await fetch(getApiUrl('/api/bot/config'), {
+                    credentials: 'include',
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 });
                 if (res.ok) {
@@ -74,8 +83,9 @@ export const AdminDashboard = () => {
         setIsSavingToken(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('/api/bot/config', {
+            const res = await fetch(getApiUrl('/api/bot/config'), {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -105,7 +115,7 @@ export const AdminDashboard = () => {
         setSimulatorMessages(prev => [...prev, { sender: 'user', text: userMsg, time: new Date().toLocaleTimeString() }]);
 
         try {
-            const res = await fetch('/api/bot/command', {
+            const res = await fetch(getApiUrl('/api/bot/command'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -664,14 +674,14 @@ export const AdminDashboard = () => {
                         {activeTab === 'bot' && (
                             <div className="space-y-6">
                                 {/* Top Explanation Card */}
-                                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
-                                    <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
+                                <div className="bg-slate-900 text-white rounded-3xl p-8 relative overflow-hidden shadow-2xl border border-slate-800">
+                                    <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
                                     <div className="max-w-3xl space-y-4 relative z-10">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-500/30">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-500/30">
                                             <Bot size={12} />
                                             Two-Way Outgoing Relay Hub
                                         </div>
-                                        <h3 className="text-2xl font-black tracking-tight">MICROSOFT TEAMS BOT CENTER</h3>
+                                        <h3 className="text-2xl font-black text-white tracking-tight block">MICROSOFT TEAMS BOT CENTER</h3>
                                         <p className="text-slate-300 text-xs leading-relaxed font-medium max-w-2xl">
                                             Enable two-way communications by binding this application to a Microsoft Teams Outgoing Webhook. 
                                             This permits remote server state queries directly via inline mentions (`@Hub status`) alongside instant Adaptive Card submit responses.
