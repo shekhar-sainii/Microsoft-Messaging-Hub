@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+logs
+*.log
+.env
+.env.*
+test_output.txt
+certs/private.pem
+keys
+../coverage-report

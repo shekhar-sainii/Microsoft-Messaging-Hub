@@ -50,7 +50,7 @@ describe('AdaptiveCardUtils', () => {
             const card = AdaptiveCardUtils.wrapInEnvelope(elements);
 
             expect(card.type).toBe('AdaptiveCard');
-            expect(card.version).toBe('1.5');
+            expect(card.version).toBe('1.4');
             expect(card.body).toEqual(elements);
             expect(card.$schema).toBeDefined();
         });

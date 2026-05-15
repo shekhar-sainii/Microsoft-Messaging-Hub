@@ -45,6 +45,16 @@ export class AnalyticsController {
       return ApiResponse.error(res, error);
     }
   }
+
+  async getRateLimitStatus(req: AuthenticatedRequest, res: Response) {
+    try {
+        const tenantId = req.user?.tenantId || 'common';
+        const result = await analyticsService.getRateLimitStatus(tenantId);
+        return ApiResponse.success(res, result, ResponseMessages.FETCHED);
+    } catch (error: any) {
+        return ApiResponse.error(res, error);
+    }
+  }
 }
 
 export const analyticsController = new AnalyticsController();

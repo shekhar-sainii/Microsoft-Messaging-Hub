@@ -1,6 +1,6 @@
 import * as msal from '@azure/msal-node';
 import { MsalOboService } from './msalOboService';
-import { redis } from '../config/redis';
+import { redis, redisConnection } from '../config/redis';
 
 // Mock the entire MSAL module
 jest.mock('@azure/msal-node', () => {
@@ -23,6 +23,7 @@ describe('MsalOboService', () => {
 
   afterAll(async () => {
     await redis.quit(); // Ensure redis connection is closed
+    await redisConnection.quit?.();
   });
 
   it('should successfully exchange a user token for a Graph token via OBO', async () => {

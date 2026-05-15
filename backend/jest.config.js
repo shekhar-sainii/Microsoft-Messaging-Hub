@@ -3,7 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/*.test.ts'],
   verbose: true,
-  forceExit: true,
+  forceExit: false,
   clearMocks: true,
   resetModules: true,
   restoreMocks: true,

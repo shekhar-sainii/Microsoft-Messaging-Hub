@@ -48,9 +48,7 @@ export const useAuth = () => {
 
             // Correct path: ApiResponse.data contains the user object directly
             const userDataPayload = backendResponse.data.data;
-            if (userDataPayload?.sessionToken) {
-                localStorage.setItem('session_token', userDataPayload.sessionToken);
-            }
+            localStorage.removeItem('session_token');
             setUser(userDataPayload);
             setIsAuthenticated(true);
             syncedAccountId.current = accountId;

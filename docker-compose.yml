@@ -6,7 +6,7 @@ services:
     container_name: messaging-hub-db-new
     restart: unless-stopped
     ports:
-      - "27018:27017"
+      - "${MONGO_HOST_PORT:-27019}:27017"
     volumes:
       - mongodb_data_new:/data/db
 
@@ -39,6 +39,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=production
+      - RSA_PRIVATE_KEY_PATH=/run/secrets/rsa_private_key
+    secrets:
+      - rsa_private_key
     depends_on:
       - mongodb_new
       - redis
@@ -82,3 +85,7 @@ services:
 
 volumes:
   mongodb_data_new:
+
+secrets:
+  rsa_private_key:
+    file: ./backend/certs/private.pem

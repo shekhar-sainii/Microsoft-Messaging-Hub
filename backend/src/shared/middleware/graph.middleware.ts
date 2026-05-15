@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import { ApiResponse } from '../ApiResponse';
 import { HttpStatus, ResponseMessages } from '../constants';
 import { AuthenticatedRequest } from '../types';
+import { decryptToken } from '../../utils/tokenCrypto';
 
 /**
  * Middleware that ensures we have a valid Graph client for the user.
@@ -26,7 +27,7 @@ export const graphMiddleware = async (req: AuthenticatedRequest, res: Response, 
             return ApiResponse.error(res, ResponseMessages.USER_NOT_FOUND, HttpStatus.UNAUTHORIZED);
         }
 
-        const accessToken = user.accessToken;
+        const accessToken = decryptToken(user.accessToken);
 
         if (!accessToken) {
             return ApiResponse.error(res, ResponseMessages.MS_TOKEN_FAILED, HttpStatus.UNAUTHORIZED);

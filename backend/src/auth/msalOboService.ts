@@ -63,8 +63,8 @@ export class MsalOboService {
 
             const response = await cca.acquireTokenOnBehalfOf(oboRequest);
             return response?.accessToken || null;
-        } catch (error) {
-            console.error('❌ OBO Token Exchange Failed:', error);
+        } catch (error: any) {
+            console.error('❌ OBO Token Exchange Failed:', error.message || error);
             return null;
         }
     }

@@ -4,6 +4,7 @@ import { Clock, Calendar, CheckCircle2, XCircle, Trash2, Send, Activity, Timer, 
 import { useGetScheduledMessagesQuery, useCancelScheduleMutation } from '../schedulerApi';
 import toast from 'react-hot-toast';
 import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
+import { sanitizeHtml } from '../../../utils/sanitizeHtml';
 import { ScheduleMessageForm } from './ScheduleMessageForm';
 
 const RECURRENCE_LABELS: Record<string, string> = {
@@ -173,7 +174,7 @@ export const SchedulerDashboard: React.FC = () => {
                                             </h4>
                                             <div
                                                 className="text-xs text-slate-500 font-medium line-clamp-1 prose prose-sm max-w-none italic"
-                                                dangerouslySetInnerHTML={{ __html: schedule.content || 'No message content' }}
+                                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(schedule.content || 'No message content') }}
                                             />
                                         </div>
 

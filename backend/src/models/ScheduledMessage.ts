@@ -36,6 +36,7 @@ const ScheduledMessageSchema: Schema = new Schema({
     enum: ['none', 'daily', 'weekly', 'monthly'],
     default: 'none',
   },
+  timezone: { type: String, default: 'UTC' }, // Assessment Requirement: Timezone support
   recurrenceEndDate: { type: Date },
   parentJobId: { type: String },
 }, { timestamps: true });

@@ -3,6 +3,8 @@ import { logger } from '../../utils/logger';
 import { messageRepository } from './message.repository';
 import { auditRepository } from '../analytics/audit.repository';
 import { RateLimiter } from '../../utils/rateLimiter';
+import { AdaptiveCardUtils } from '../../utils/adaptiveCards';
+import { config } from '../../config';
 
 export interface Mention {
   id: number;
@@ -83,7 +85,9 @@ export class MessagesService {
 
   async sendAdaptiveCard(client: Client, teamId: string, channelId: string, cardJson: any, userId: string, options: SendOptions = {}) {
     return RateLimiter.throttle(userId, async () => {
-        const cardContent = typeof cardJson === 'string' ? cardJson : JSON.stringify(cardJson);
+        // Automatically inject MS Teams metadata to support Action.Submit
+        const teamsReadyCard = AdaptiveCardUtils.prepareForTeams(cardJson, config.msal.clientId);
+        const cardContent = typeof teamsReadyCard === 'string' ? teamsReadyCard : JSON.stringify(teamsReadyCard);
         const payload: any = {
           body: { contentType: 'html', content: `<attachment id="adaptiveCardAttachment"></attachment>` },
           attachments: [{ id: 'adaptiveCardAttachment', contentType: 'application/vnd.microsoft.card.adaptive', content: cardContent }],

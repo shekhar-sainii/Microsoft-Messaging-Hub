@@ -10,5 +10,6 @@ router.get('/summary', analyticsController.getSummaryStats);
 router.get('/messages', analyticsController.getMessageStats);
 router.get('/failures', analyticsController.getFailureLogs);
 router.get('/audit', analyticsController.getAuditLogs);
+router.get('/ratelimit', analyticsController.getRateLimitStatus);
 
 export default router;

@@ -27,10 +27,9 @@ COPY --from=builder /app/dist ./dist
 # Copy source schemas ensuring complete JSDoc OpenAPI parsing block availability at runtime
 COPY --from=builder /app/src/docs ./src/docs
 
-# Create keys directory and copy certs conditionally using wildcard matching
-RUN mkdir -p dist/keys certs
-COPY certs* ./certs/
-RUN cp -r certs/* dist/keys/ 2>/dev/null || true
+# Create cert directory. Private keys are provided at runtime, never baked into the image.
+RUN mkdir -p certs
+COPY certs/cert.pem certs/public.pem ./certs/
 
 EXPOSE 3000
 

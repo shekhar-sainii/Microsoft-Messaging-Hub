@@ -37,6 +37,24 @@ export class AnalyticsService {
     const logs = await auditRepository.findByUserId(userId, limit, skip);
     return Array.isArray(logs) ? logs : [];
   }
+  
+  /**
+   * Fetches current throttle status for the user's tenant.
+   * This provides data for the 'Rate Limit Dashboard' requirement.
+   */
+  async getRateLimitStatus(tenantId: string) {
+    const { redis } = await import('../../config/redis');
+    const key = `ratelimit:${tenantId}`;
+    const tokens = await redis.get(key);
+    
+    return {
+        tenantId,
+        remainingTokens: tokens ? parseInt(tokens, 10) : 3,
+        limit: 3,
+        status: tokens && parseInt(tokens, 10) <= 0 ? 'Throttled' : 'Healthy',
+        lastUpdated: new Date()
+    };
+  }
 }
 
 export const analyticsService = new AnalyticsService();

@@ -15,7 +15,10 @@ const AuditLogSchema: Schema = new Schema({
   status: { type: String, enum: ['success', 'failure'], required: true },
   userId: { type: String },
   metadata: { type: Schema.Types.Mixed },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  capped: { size: 200 * 1024 * 1024, max: 100000 } // Assessment Requirement: Capped 200MB
+});
 
 AuditLogSchema.index({ userId: 1 });
 AuditLogSchema.index({ eventType: 1 });

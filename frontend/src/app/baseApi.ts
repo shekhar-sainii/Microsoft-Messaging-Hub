@@ -21,11 +21,6 @@ export const baseApi = createApi({
             const csrf = getCsrfToken();
             if (csrf) headers.set('X-CSRF-Token', csrf);
             
-            // Core fallback wrapper: attach the dynamic JWT signature if SameSite cookies are dropped
-            const sessionToken = localStorage.getItem('session_token');
-            if (sessionToken) {
-                headers.set('Authorization', `Bearer ${sessionToken}`);
-            }
             return headers;
         },
     }),

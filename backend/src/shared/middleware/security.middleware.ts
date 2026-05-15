@@ -49,10 +49,13 @@ export const csrfProtection = (req: express.Request, res: express.Response, next
 export const setCsrfToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.cookies?.['csrf-token']) {
     const token = crypto.randomBytes(32).toString('hex');
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    const isProd = config.env === 'production';
+
     res.cookie('csrf-token', token, {
       httpOnly: false,
-      secure: true,
-      sameSite: config.env === 'production' ? 'none' : 'lax',
+      secure: isProd && !isLocalhost,
+      sameSite: isProd && !isLocalhost ? 'none' : 'lax',
     });
   }
   next();

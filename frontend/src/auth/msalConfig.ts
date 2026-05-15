@@ -8,8 +8,8 @@ export const msalConfig: any = {
         postLogoutRedirectUri: window.location.origin,
     },
     cache: {
-        cacheLocation: "localStorage",
-        storeAuthStateInCookie: true,
+        cacheLocation: "sessionStorage", // Required by assessment security rules
+        storeAuthStateInCookie: false,
     },
     system: {
         loggerOptions: {
@@ -36,6 +36,20 @@ export const loginRequest = {
         "profile",
         "offline_access"
     ],
+};
+
+/**
+ * Admin Consent Request
+ * Used for multi-tenant onboarding to grant application permissions at the tenant level.
+ */
+export const adminLoginRequest = {
+    ...loginRequest,
+    prompt: 'admin_consent',
+    scopes: [
+        ...loginRequest.scopes,
+        "ChannelMessage.Read.All",
+        "Subscription.Read.All"
+    ]
 };
 
 export const graphConfig = {

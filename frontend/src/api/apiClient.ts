@@ -9,7 +9,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000
  * - withCredentials: true — sends the httpOnly session cookie automatically
  * - X-CSRF-Token header — reads the csrf-token cookie and echoes it back
  *   to satisfy the backend CSRF check on all mutating requests
- * - Session JWT is NEVER stored in localStorage
+ * - Session JWT is never read from localStorage; the httpOnly cookie is authoritative
  */
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -25,18 +25,12 @@ const getCsrfToken = (): string | null => {
     return match ? decodeURIComponent(match[1]) : null;
 };
 
-// Request interceptor: attach CSRF token and fallback Authorization Bearer header
+// Request interceptor: attach CSRF token.
 apiClient.interceptors.request.use(
     (config) => {
         const csrf = getCsrfToken();
         if (csrf) {
             config.headers['X-CSRF-Token'] = csrf;
-        }
-        // Stateless fallback wrapper: if SameSite cookies are dropped by browser policies,
-        // attach the serialized JWT explicitly
-        const sessionToken = localStorage.getItem('session_token');
-        if (sessionToken) {
-            config.headers.Authorization = `Bearer ${sessionToken}`;
         }
         return config;
     },

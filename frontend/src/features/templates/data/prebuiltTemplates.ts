@@ -6,7 +6,7 @@ export const PREBUILT_TEMPLATES = [
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.5",
+      version: "1.4",
       body: [
         {
           type: "Container",
@@ -89,7 +89,7 @@ export const PREBUILT_TEMPLATES = [
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.5",
+      version: "1.4",
       body: [
         {
           type: "Container",
@@ -141,7 +141,7 @@ export const PREBUILT_TEMPLATES = [
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.5",
+      version: "1.4",
       body: [
         {
           type: "Container",
@@ -189,7 +189,7 @@ export const PREBUILT_TEMPLATES = [
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.5",
+      version: "1.4",
       body: [
         {
           type: "TextBlock",
@@ -252,7 +252,7 @@ export const PREBUILT_TEMPLATES = [
     type: 'adaptive_card',
     content: {
       type: "AdaptiveCard",
-      version: "1.5",
+      version: "1.4",
       body: [
         {
           type: "Container",

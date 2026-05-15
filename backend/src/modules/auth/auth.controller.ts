@@ -10,10 +10,13 @@ export class AuthController {
       const { idToken, accessToken } = req.body;
       const result = await authService.handleUserLogin(idToken, accessToken);
       
+      const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+      const isProd = process.env.NODE_ENV === 'production';
+
       res.cookie('session_token', result.sessionToken, {
         httpOnly: true,
-        secure: true, // MUST be true for SameSite='none' cross-origin cookies
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: isProd && !isLocalhost, // Only secure in prod if NOT localhost
+        sameSite: isProd && !isLocalhost ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000
       });
 

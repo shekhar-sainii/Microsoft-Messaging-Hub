@@ -1,8 +1,15 @@
 import { Request, Response } from 'express';
-import { webhookController } from './webhook.controller';
 import { socketService } from '../../services/socket.service';
 
 // Mock Dependencies
+jest.mock('./webhook.service', () => ({
+  webhookService: {
+    createSubscription: jest.fn(),
+    listSubscriptions: jest.fn(),
+    deleteSubscription: jest.fn(),
+  },
+}));
+
 jest.mock('../../services/socket.service', () => ({
   socketService: {
     emitToRoom: jest.fn(),
@@ -16,6 +23,8 @@ jest.mock('../../utils/crypto.utils', () => ({
     decryptPayload: jest.fn(),
   },
 }));
+
+import { webhookController } from './webhook.controller';
 
 describe('WebhookController', () => {
   let mockRequest: Partial<Request>;

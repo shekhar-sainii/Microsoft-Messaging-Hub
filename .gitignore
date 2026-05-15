@@ -45,6 +45,8 @@ ts_errors.txt
 tsc_errors.txt
 backend/test_output.txt
 keys/
+backend/certs/private.pem
+backend/certs/*.key
 test-results/
 playwright-report/
 BONUS_TESTING.md

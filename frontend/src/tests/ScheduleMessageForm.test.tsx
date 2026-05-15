@@ -2,7 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Provider } from 'react-redux';
 import { ScheduleMessageForm } from '../features/scheduler/components/ScheduleMessageForm';
+import { store } from '../app/store';
 
 // Mock apiClient
 vi.mock('../api/apiClient', () => ({
@@ -16,7 +18,9 @@ const renderWithProviders = (ui: React.ReactElement) => {
         defaultOptions: { queries: { retry: false } },
     });
     return render(
-        <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+        <Provider store={store}>
+            <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+        </Provider>
     );
 };
 
@@ -27,39 +31,38 @@ describe('ScheduleMessageForm (React Hook Form + Zod)', () => {
 
     it('renders all form fields', () => {
         renderWithProviders(<ScheduleMessageForm />);
-        expect(screen.getByPlaceholderText('Team ID')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('Channel ID')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('Enter your message...')).toBeInTheDocument();
-        expect(screen.getByText('Schedule Message')).toBeInTheDocument();
+        expect(screen.getByText('Target Organization')).toBeInTheDocument();
+        expect(screen.getByText('Target Channel')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Type initial mission dispatch template or plain message...')).toBeInTheDocument();
+        expect(screen.getByText(/Engage Schedule Relay/i)).toBeInTheDocument();
     });
 
     it('shows validation errors when submitting empty form', async () => {
         renderWithProviders(<ScheduleMessageForm />);
-        fireEvent.click(screen.getByText('Schedule Message'));
+        fireEvent.click(screen.getByText(/Engage Schedule Relay/i));
 
         await waitFor(() => {
-            expect(screen.getByText('Team is required')).toBeInTheDocument();
+            expect(screen.getByText('Team ID is required')).toBeInTheDocument();
         });
     });
 
     it('shows recurrence end date field when recurrence is not none', async () => {
         renderWithProviders(<ScheduleMessageForm />);
-        const recurrenceSelect = screen.getByRole('combobox');
+        const recurrenceSelect = screen.getAllByRole('combobox')[2];
         fireEvent.change(recurrenceSelect, { target: { value: 'weekly' } });
 
         await waitFor(() => {
-            expect(screen.getByText('Series End Date (optional)')).toBeInTheDocument();
+            expect(screen.getByText('Series Terminus Window (Optional)')).toBeInTheDocument();
         });
     });
 
     it('hides recurrence end date when recurrence is none', () => {
         renderWithProviders(<ScheduleMessageForm />);
-        expect(screen.queryByText('Series End Date (optional)')).not.toBeInTheDocument();
+        expect(screen.queryByText('Series Terminus Window (Optional)')).not.toBeInTheDocument();
     });
 
     it('shows timezone field pre-filled', () => {
         renderWithProviders(<ScheduleMessageForm />);
-        const timezoneInput = screen.getByDisplayValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
-        expect(timezoneInput).toBeInTheDocument();
+        expect(screen.getByText(Intl.DateTimeFormat().resolvedOptions().timeZone)).toBeInTheDocument();
     });
 });

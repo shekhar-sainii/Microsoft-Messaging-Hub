@@ -55,7 +55,18 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:5173')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Origin not allowed by CORS'));
+  },
   credentials: true,
 }));
 
@@ -82,7 +93,9 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
-        secure: config.env === 'production',
+        // Dynamic security: if we are in production, we want secure cookies,
+        // but we allow HTTP for local Docker testing to prevent 401 loops.
+        secure: config.env === 'production' && process.env.ALLOW_INSECURE_SESSIONS !== 'true',
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000,
     },
@@ -111,13 +124,26 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { background: #0f172a; }',
 }));
 
-// Health Check
+// Health Check (Enterprise Grade)
 app.get('/api/health', async (_req, res) => {
   const mongoStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+  let redisStatus = 'Disconnected';
+  
+  try {
+      const ping = await sessionRedisClient.ping();
+      if (ping === 'PONG') redisStatus = 'Connected';
+  } catch (e) {
+      logger.error('Health check Redis ping failed', e);
+  }
+
   res.json({ 
     status: 'Operational', 
     timestamp: new Date().toISOString(),
-    infrastructure: { mongodb: mongoStatus }
+    env: config.env,
+    infrastructure: { 
+        mongodb: mongoStatus,
+        redis: redisStatus
+    }
   });
 });
 

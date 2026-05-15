@@ -25,11 +25,12 @@ jest.mock('../../config', () => ({
 describe('AuthService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        process.env.ADMIN_EMAILS = '';
     });
 
     describe('handleUserLogin', () => {
         it('should create a session for a new user', async () => {
-            const idToken = jwt.sign({ oid: 'oid-1', email: 'test@example.com', name: 'User' }, 'secret');
+            const idToken = jwt.sign({ oid: 'oid-1', tid: 'tenant-1', email: 'test@example.com', name: 'User' }, 'secret');
             
             const result = await authService.handleUserLogin(idToken, 'access-token');
 
@@ -38,8 +39,9 @@ describe('AuthService', () => {
             expect(userRepository.upsert).toHaveBeenCalled();
         });
 
-        it('should assign admin role for specific admin email', async () => {
-            const idToken = jwt.sign({ oid: 'oid-1', upn: 'admin@shekharsaini2030gmail.onmicrosoft.com', name: 'Admin' }, 'secret');
+        it('should assign admin role for configured admin email', async () => {
+            process.env.ADMIN_EMAILS = 'admin@example.com';
+            const idToken = jwt.sign({ oid: 'oid-1', tid: 'tenant-1', upn: 'admin@example.com', name: 'Admin' }, 'secret');
             
             const result = await authService.handleUserLogin(idToken, 'access-token');
             expect(result.user.role).toBe('admin');

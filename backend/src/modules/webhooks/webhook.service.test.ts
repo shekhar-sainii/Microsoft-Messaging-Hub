@@ -26,6 +26,10 @@ jest.mock('../../auth/clientCredentials', () => ({
     },
 }));
 
+jest.mock('../../config/graphClient', () => ({
+    createGraphClient: jest.fn(),
+}));
+
 jest.mock('../../utils/logger', () => ({
     logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
@@ -41,6 +45,8 @@ const mockGraphClient = {
 describe('WebhookService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        const { createGraphClient } = require('../../config/graphClient');
+        createGraphClient.mockReturnValue(mockGraphClient);
     });
 
     describe('createSubscription', () => {

@@ -26,7 +26,7 @@ export class TemplateService {
           type: 'adaptive_card',
           content: {
             type: "AdaptiveCard",
-            version: "1.5",
+            version: "1.4",
             body: [
               {
                 type: "Container",
@@ -67,7 +67,7 @@ export class TemplateService {
           type: 'adaptive_card',
           content: {
             type: "AdaptiveCard",
-            version: "1.5",
+            version: "1.4",
             body: [
               {
                 type: "Container",
@@ -89,7 +89,7 @@ export class TemplateService {
           type: 'adaptive_card',
           content: {
             type: "AdaptiveCard",
-            version: "1.5",
+            version: "1.4",
             body: [
               {
                 type: "Container",
@@ -113,7 +113,7 @@ export class TemplateService {
           type: 'adaptive_card',
           content: {
             type: "AdaptiveCard",
-            version: "1.5",
+            version: "1.4",
             body: [
               { type: "TextBlock", text: "NODE OPERATIONAL DASHBOARD", isSubtle: true, weight: "Bolder", size: "Small" },
               { type: "TextBlock", text: "Live Health Telemetry", weight: "Bolder", size: "ExtraLarge", color: "Accent", spacing: "None" },
@@ -143,7 +143,7 @@ export class TemplateService {
           type: 'adaptive_card',
           content: {
             type: "AdaptiveCard",
-            version: "1.5",
+            version: "1.4",
             body: [
               {
                 type: "Container",

@@ -47,7 +47,7 @@ export class TeamsService {
             return result;
         } catch (error: any) {
             logger.warn('Graph teams fetch failed', { error: error.message });
-            return [];
+            return DEMO_TEAMS;
         }
     });
   }

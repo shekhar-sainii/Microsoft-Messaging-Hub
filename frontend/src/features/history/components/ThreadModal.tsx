@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, MessageSquare, Sparkles, User, CornerDownRight } from 'lucide-react';
 import { useMessageReplies, useReplyMessage } from '../../../hooks/useMessagesData';
 import toast from 'react-hot-toast';
+import { sanitizeHtml } from '../../../utils/sanitizeHtml';
 
 interface ThreadModalProps {
   isOpen: boolean;
@@ -95,7 +96,7 @@ export const ThreadModal: React.FC<ThreadModalProps> = ({ isOpen, onClose, messa
                 <div className="inline-block w-full max-w-prose bg-gradient-to-br from-slate-50 to-blue-50/20 p-3.5 rounded-2xl rounded-tl-none border border-slate-200/60 shadow-2xs">
                   <div 
                     className="text-xs text-slate-700 prose prose-sm max-w-none leading-relaxed break-words"
-                    dangerouslySetInnerHTML={{ __html: message.body?.content || message.content }} 
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.body?.content || message.content) }} 
                   />
                 </div>
               </div>
@@ -140,7 +141,7 @@ export const ThreadModal: React.FC<ThreadModalProps> = ({ isOpen, onClose, messa
                         </span>
                       </div>
                       <div className="inline-block bg-slate-50 p-3 rounded-xl rounded-tl-none border border-slate-100 text-xs text-slate-600 break-words max-w-full">
-                        <div dangerouslySetInnerHTML={{ __html: reply.body?.content }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(reply.body?.content) }} />
                       </div>
                     </div>
                   </motion.div>

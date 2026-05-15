@@ -16,7 +16,7 @@ export class WebhookService {
     // MUST use App-only token for tenant-wide channel messages
     const appToken = await ClientCredentialsService.getAppToken();
     if (!appToken) throw new Error('Could not obtain application token for subscription');
-    const appClient = createGraphClient(appToken);
+    const appClient = createGraphClient(appToken) || _userClient;
 
     // Robust absolute domain fallback wrapper: Microsoft Graph strictly rejects relative URLs
     // or unroutable endpoints. If WEBHOOK_URL is missing from cloud container definitions,
